@@ -1,9 +1,9 @@
 {
   "name": "nc-gui",
-  "description": "NocoDB Frontend",
+  "description": "Rooche Ethersheet Frontend",
   "private": true,
   "author": {
-    "name": "NocoDB",
+    "name": "Rooche Ethersheet",
     "url": "https://nocodb.com/"
   },
   "homepage": "https://github.com/nocodb/nocodb",

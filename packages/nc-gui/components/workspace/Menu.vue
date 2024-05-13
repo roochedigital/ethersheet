@@ -13,7 +13,7 @@
           target="_blank"
           rel="noopener noreferrer"
         >
-          <img alt="NocoDB" src="~/assets/img/brand/nocodb.png" />
+          <img alt="Rooche Ethersheet" src="~/assets/img/brand/logo.svg" />
         </a>
         <div class="flex flex-grow"></div>
       </div>
