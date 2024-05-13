@@ -14,13 +14,13 @@ ERROR=""
 
 function stop_and_remove_container() {
     # Stop and remove the existing container
-    docker stop nocodb-local >/dev/null 2>&1
-    docker rm nocodb-local >/dev/null 2>&1
+    sudo docker stop nocodb-local >/dev/null 2>&1
+    sudo docker rm nocodb-local >/dev/null 2>&1
 }
 
 function remove_image() {
     # Remove the existing image
-    docker rmi nocodb-local >/dev/null 2>&1
+    sudo docker rmi nocodb-local >/dev/null 2>&1
 }
 
 function install_dependencies() {
@@ -50,7 +50,7 @@ function package_nocodb() {
 
 function build_image() {
     # build docker
-    docker build . -f Dockerfile.local -t nocodb-local || ERROR="build_image failed"
+    sudo docker build . -f Dockerfile.local -t nocodb-local || ERROR="build_image failed"
 }
 
 function log_message() {
@@ -61,7 +61,7 @@ function log_message() {
         exit 1
     else
         echo 'docker image with tag "nocodb-local" built sussessfully. Use below sample command to run the container'
-        echo 'docker run -d -p 3333:8080 --name nocodb-local nocodb-local '
+        echo 'docker run -d -p 3333:8081 --name nocodb-local nocodb-local '
     fi
 }
 
