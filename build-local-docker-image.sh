@@ -31,7 +31,7 @@ function install_dependencies() {
 
 function build_gui() {
     # build nc-gui
-    export NODE_OPTIONS="--max_old_space_size=16384"
+    export NODE_OPTIONS="--max_old_space_size=2048"
     # generate static build of nc-gui
     cd ${SCRIPT_DIR}/packages/nc-gui
     pnpm run generate || ERROR="gui build failed"
@@ -61,7 +61,7 @@ function log_message() {
         exit 1
     else
         echo 'docker image with tag "nocodb-local" built sussessfully. Use below sample command to run the container'
-        echo 'docker run -d -p 3333:8081 --name nocodb-local nocodb-local '
+        echo 'docker run -d -p 3333:8080 --name nocodb-local nocodb-local '
     fi
 }
 
