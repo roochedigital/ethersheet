@@ -31,7 +31,7 @@ function install_dependencies() {
 
 function build_gui() {
     # build nc-gui
-    export NODE_OPTIONS="--max-old-space-size=2048"
+    export NODE_OPTIONS="--max-old-space-size=3072"
     # generate static build of nc-gui
     cd ${SCRIPT_DIR}/packages/nc-gui
     pnpm run generate || ERROR="gui build failed"
