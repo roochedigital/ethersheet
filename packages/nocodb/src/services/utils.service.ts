@@ -420,6 +420,7 @@ export class UtilsService {
       disableEmailAuth: this.configService.get('auth.disableEmailAuth', {
         infer: true,
       }),
+      setup: true,
       mainSubDomain: this.configService.get('mainSubDomain', { infer: true }),
       dashboardPath: this.configService.get('dashboardPath', { infer: true }),
       inviteOnlySignup: settings.invite_only_signup,

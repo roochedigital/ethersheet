@@ -32,6 +32,7 @@ export interface AppInfo {
   automationLogLevel: 'OFF' | 'ERROR' | 'ALL'
   baseHostName?: string
   disableEmailAuth: boolean
+  setup: boolean
   mainSubDomain?: string
   dashboardPath: string
   inviteOnlySignup: boolean

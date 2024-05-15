@@ -73,6 +73,7 @@ declare module 'vue' {
     ATooltip: typeof import('ant-design-vue/es')['Tooltip']
     ATree: typeof import('ant-design-vue/es')['Tree']
     ATypographyTitle: typeof import('ant-design-vue/es')['TypographyTitle']
+    AUpload: typeof import('ant-design-vue/es')['Upload']
     AUploadDragger: typeof import('ant-design-vue/es')['UploadDragger']
     CilFullscreen: typeof import('~icons/cil/fullscreen')['default']
     CilFullscreenExit: typeof import('~icons/cil/fullscreen-exit')['default']

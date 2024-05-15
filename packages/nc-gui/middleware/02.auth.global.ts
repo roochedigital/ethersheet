@@ -51,6 +51,13 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     await tryGoogleAuth(api, state.signIn)
   }
 
+  if (state.appInfo.value.setup) {
+    if (to.path !== '/setup')
+      return navigateTo({
+        path: '/setup',
+      })
+  }
+
   /** if not signedIn try token population based on short-lived-token */
   if (!state.signedIn.value) await tryShortTokenAuth(api, state.signIn)
 
