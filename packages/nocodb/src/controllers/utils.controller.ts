@@ -1,5 +1,3 @@
-import fs from 'fs';
-import { promisify } from 'util';
 import {
   Body,
   Controller,
@@ -7,15 +5,20 @@ import {
   HttpCode,
   Post,
   Req,
+  UploadedFiles,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
+import fs from 'fs';
+import { promisify } from 'util';
 import { GlobalGuard } from '~/guards/global/global.guard';
-import { UtilsService } from '~/services/utils.service';
-import { Acl } from '~/middlewares/extract-ids/extract-ids.middleware';
 import { MetaApiLimiterGuard } from '~/guards/meta-api-limiter.guard';
 import { PublicApiLimiterGuard } from '~/guards/public-api-limiter.guard';
+import { Acl } from '~/middlewares/extract-ids/extract-ids.middleware';
 import { TelemetryService } from '~/services/telemetry.service';
+import { UtilsService } from '~/services/utils.service';
 
 @Controller()
 export class UtilsController {
@@ -82,6 +85,31 @@ export class UtilsController {
   @HttpCode(200)
   async axiosRequestMake(@Body() body: any) {
     return await this.utilsService.axiosRequestMake({ body });
+  }
+
+  @UseGuards(PublicApiLimiterGuard)
+  @Post(['/api/v1/setup', '/api/v2/setup'])
+  @HttpCode(200)
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'icon', maxCount: 1 },
+      { name: 'logo', maxCount: 1 },
+      { name: 'sidebar_icon', maxCount: 1 },
+    ]),
+  )
+  async setup(
+    @UploadedFiles()
+    files: {
+      icon?: Express.Multer.File[];
+      logo?: Express.Multer.File[];
+      sidebar_icon?: Express.Multer.File[];
+    },
+    @Body() body: any,
+  ) {
+    const icon = files.icon ? files.icon[0] : undefined;
+    const logo = files.logo ? files.logo[0] : undefined;
+    const sidebar_icon = files.sidebar_icon ? files.sidebar_icon[0] : undefined;
+    return await this.utilsService.setup({ body, icon, logo, sidebar_icon });
   }
 
   @UseGuards(PublicApiLimiterGuard)

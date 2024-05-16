@@ -19,6 +19,8 @@ import {
   defaultGroupByLimitConfig,
   defaultLimitConfig,
 } from '~/helpers/extractLimitAndOffset';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const versionCache = {
   releaseVersion: null,
@@ -360,6 +362,61 @@ export class UtilsService {
     });
   };
 
+  async setup({
+    body,
+    icon,
+    logo,
+    sidebar_icon,
+  }: {
+    body: any;
+    icon?: Express.Multer.File;
+    logo?: Express.Multer.File;
+    sidebar_icon?: Express.Multer.File;
+  }) {
+    if (icon) {
+      const newIconName = `favicon.ico`;
+      const newIconPath = path.join(
+        __dirname,
+        process.env.NODE_ENV === 'production'
+          ? '../docker/public'
+          : '../../../nc-gui/public',
+        newIconName,
+      );
+      fs.renameSync(icon.path, newIconPath);
+    }
+
+    if (logo) {
+      const newLogoName = `logo.svg`;
+      const newLogoPath = path.join(
+        __dirname,
+        process.env.NODE_ENV === 'production'
+          ? '../docker/public'
+          : '../../../nc-gui/public',
+        newLogoName,
+      );
+      fs.renameSync(logo.path, newLogoPath);
+    }
+
+    if (sidebar_icon) {
+      const newSidebarIconName = `sidebar_icon.svg`;
+      const newSidebarIconPath = path.join(
+        __dirname,
+        process.env.NODE_ENV === 'production'
+          ? '../docker/public'
+          : '../../../nc-gui/public',
+        newSidebarIconName,
+      );
+      fs.renameSync(sidebar_icon.path, newSidebarIconPath);
+    }
+
+    const { title } = body;
+
+    process.env.NC_SITE_NAME = title;
+    process.env.NC_SETUP = 'false';
+
+    return { message: 'Files uploaded and renamed successfully' };
+  }
+
   async testConnection(param: { body: any }) {
     return await SqlMgrv2.testConnection(param.body);
   }
@@ -420,7 +477,8 @@ export class UtilsService {
       disableEmailAuth: this.configService.get('auth.disableEmailAuth', {
         infer: true,
       }),
-      setup: true,
+      setup: process.env.NC_SETUP !== 'false',
+      siteName: process.env.NC_SITE_NAME ?? 'Rooche Ethersheet',
       mainSubDomain: this.configService.get('mainSubDomain', { infer: true }),
       dashboardPath: this.configService.get('dashboardPath', { infer: true }),
       inviteOnlySignup: settings.invite_only_signup,
