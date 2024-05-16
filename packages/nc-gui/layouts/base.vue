@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 const { signOut, signedIn, isLoading, user, currentVersion, appInfo } = useGlobal()
 
-useSidebar('nc-left-sidebar', { hasSidebar: false })
+useSidebar('nc-left-sidebar', { hasSidebar: false }) 
 
 const route = useRoute()
 
@@ -9,7 +9,7 @@ const email = computed(() => user.value?.email ?? '---')
 
 const hasSider = ref(false)
 
-const sidebar = ref<HTMLDivElement>()
+const sidebar = ref<HTMLDivElement>() 
 
 const logout = async () => {
   await signOut(false)
@@ -48,8 +48,8 @@ hooks.hook('page:finish', () => {
               {{ currentVersion }}
             </template>
             <div class="flex items-center gap-2">
-              <img v-if="!isDashboard" width="120" alt="Rooche Ethersheet" src="~/assets/img/brand/nocodb-full.png" />
-              <img v-else width="25" alt="Rooche Ethersheet" src="~/assets/img/icons/256x256.png" />
+              <img v-if="!isDashboard" width="120" :alt="appInfo.siteName" src="~/assets/img/brand/nocodb-full.png" />
+              <img v-else width="25" :alt="appInfo.siteName" src="~/assets/img/icons/256x256.png" />
             </div>
           </a-tooltip>
         </div>

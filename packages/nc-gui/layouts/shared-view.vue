@@ -33,7 +33,7 @@ onMounted(() => {
   if (sharedView.value?.title) {
     document.title = `${sharedView.value.title}`
   } else {
-    document.title = 'Rooche Ethersheet'
+    document.title = appInfo.value.siteName
   }
 })
 </script>

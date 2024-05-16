@@ -12,14 +12,14 @@ const { te, t } = useI18n()
 const hasSidebar = ref(true)
 const isOpen = ref(true)
 
-const { signOut, user } = useGlobal()
+const { signOut, user, appInfo } = useGlobal()
 const { clearWorkspaces } = useWorkspace()
 
 const email = computed(() => user.value?.email ?? '---')
 
 const refreshSidebar = ref(false)
 
-useTitle(route.meta?.title && te(route.meta.title) ? `${t(route.meta.title)}` : 'Rooche Ethersheet')
+useTitle(route.meta?.title && te(route.meta.title) ? `${t(route.meta.title)}` : appInfo.value.siteName)
 
 const isPublic = computed(() => route.meta?.public)
 

@@ -15,7 +15,7 @@
           href="/" 
           rel="noopener noreferrer"
         >
-          <img :alt="appInfo.siteName" src="~/assets/img/icons/sidebar_icon.svg" />
+          <img :alt="appInfo.siteName" src="~/public/sidebar_icon.svg" />
         </a>
         <div class="flex flex-grow"></div>
       </div>

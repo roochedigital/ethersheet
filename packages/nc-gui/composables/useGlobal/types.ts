@@ -33,6 +33,7 @@ export interface AppInfo {
   baseHostName?: string
   disableEmailAuth: boolean
   setup: boolean
+  siteName: string
   mainSubDomain?: string
   dashboardPath: string
   inviteOnlySignup: boolean

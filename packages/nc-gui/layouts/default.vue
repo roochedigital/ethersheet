@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { useTitle } from '@vueuse/core'
 
+const { appInfo } = useGlobal()
 const route = useRoute()
 
 const { te, t } = useI18n()
@@ -11,7 +12,7 @@ const refreshSidebar = ref(false)
 
 const sidebarReady = ref(false)
 
-useTitle(route.meta?.title && te(route.meta.title) ? `${t(route.meta.title)}` : 'Rooche Ethersheet')
+useTitle(route.meta?.title && te(route.meta.title) ? `${t(route.meta.title)}` : appInfo.value.siteName)
 
 watch(hasSidebar, (val) => {
   if (!val) {

@@ -12,6 +12,7 @@ const { openedProject, activeProjectId, basesUser, bases } = storeToRefs(basesSt
 const { activeTables, activeTable } = storeToRefs(useTablesStore())
 const { activeWorkspace, workspaceUserCount } = storeToRefs(useWorkspace())
 
+const { appInfo } = useGlobal();
 const { navigateToProjectPage } = useBase()
 
 const isAdminPanel = inject(IsAdminPanelInj, ref(false))
@@ -86,7 +87,7 @@ watch(
   () => {
     if (activeTable.value?.title) return
 
-    useTitle(`${currentBase.value?.title ?? activeWorkspace.value?.title ?? 'Rooche Ethersheet'}`)
+    useTitle(`${currentBase.value?.title ?? activeWorkspace.value?.title ?? appInfo.value.siteName}`)
   },
   {
     immediate: true,

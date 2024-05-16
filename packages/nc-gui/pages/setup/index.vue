@@ -7,7 +7,7 @@ interface Form {
     title: string;
     icon: UploadFile[];
     logo: UploadFile[];
-    
+    sidebar_icon: UploadFile[];
 }
 
 definePageMeta({
@@ -30,40 +30,41 @@ const formValidator = ref()
 const form = reactive<Form>({ 
   title: '', 
   icon: [],
-  logo: [] 
+  logo: [],
+  sidebar_icon: [],
 })
 
 const formRules: Record<string, RuleObject[]> = {
   title: [
-    // E-mail is required
     { required: true, message: t('msg.error.titleRequired') }, 
   ], 
   icon: [
-    // E-mail is required
     { required: true, message: t('msg.error.iconRequired') }, 
   ], 
   logo: [
-    // E-mail is required
     { required: true, message: t('msg.error.logoRequired') }, 
   ], 
-}
-
-console.log(api, "api");
-
+  sidebar_icon: [
+    { required: true, message: t('msg.error.sidebarIconRequired') }, 
+  ],
+} 
 
 async function submit() {
   if (!formValidator.value.validate()) return
 
-  resetError()
+  resetError() 
 
-//   api.jobs..then(async ({ token }) => {
-//     _signIn(token!)
-
-//     await navigateTo({
-//       path: '/',
-//       query: route.query,
-//     })
-//   })
+  api.utils.setup({
+    title: form.title,
+    icon: form.icon[0].originFileObj,
+    logo: form.logo[0].originFileObj,
+    sidebar_icon: form.sidebar_icon[0].originFileObj,
+  }).then(async () => {
+    window.location.href = '/'; 
+  }).catch(error => {
+    // Handle error
+  });
+  
 }
 
 function resetError() {
@@ -80,6 +81,11 @@ function handleLogoImageInputChange(info: UploadChangeParam<UploadFile<any>>) {
     const { fileList } = info;
     form.logo = fileList.slice(-1); // Keep only the latest file 
 } 
+
+function handleSidebarIconImageInputChange(info: UploadChangeParam<UploadFile<any>>) { 
+    const { fileList } = info;
+    form.sidebar_icon = fileList.slice(-1); // Keep only the latest file 
+}
 
 
 </script>
@@ -139,7 +145,7 @@ function handleLogoImageInputChange(info: UploadChangeParam<UploadFile<any>>) {
                     list-type="picture-card"
                     :file-list="form.logo" 
                     @change="handleLogoImageInputChange"
-                    accept="image/*"
+                    accept="image/svg+xml"  
                     :multiple="false"
                     :max-count="1"     
                 >
@@ -150,6 +156,21 @@ function handleLogoImageInputChange(info: UploadChangeParam<UploadFile<any>>) {
                 </a-upload>
               </a-form-item> 
  
+              <a-form-item :label="$t('labels.uploadSidebarIcon')" name="sidebar_icon" :rules="formRules.sidebar_icon">
+                <a-upload 
+                    list-type="picture-card"
+                    :file-list="form.sidebar_icon" 
+                    @change="handleSidebarIconImageInputChange"
+                    accept="image/svg+xml"  
+                    :multiple="false"
+                    :max-count="1"     
+                >
+                    <div>
+                        <a-icon type="plus" />
+                        <div style="margin-top: 8px">Upload</div>
+                    </div>
+                </a-upload>
+              </a-form-item> 
             </template>
 
             <div class="self-center flex flex-col flex-wrap gap-4 items-center mt-4 justify-center">
