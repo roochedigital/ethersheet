@@ -1,4 +1,7 @@
-<script lang="ts" setup></script>
+<script lang="ts" setup>
+  
+  const { appInfo } = useGlobal()
+</script>
 
 <template>
   <div class="flex flex-row flex-grow pl-0.5 pr-1 py-0.5 rounded-md w-full" style="max-width: calc(100% - 2.5rem)">
@@ -9,11 +12,10 @@
       >
         <a
           class="transition-all duration-200 transform w-24 min-w-10"
-          href="https://github.com/nocodb/nocodb"
-          target="_blank"
+          href="/" 
           rel="noopener noreferrer"
         >
-          <img alt="Rooche Ethersheet" src="~/assets/img/icons/sidebar_icon.svg" />
+          <img :alt="appInfo.siteName" src="~/assets/img/icons/sidebar_icon.svg" />
         </a>
         <div class="flex flex-grow"></div>
       </div>
