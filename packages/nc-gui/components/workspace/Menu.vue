@@ -13,7 +13,7 @@
           target="_blank"
           rel="noopener noreferrer"
         >
-          <img alt="Rooche Ethersheet" src="~/assets/img/brand/logo.svg" />
+          <img alt="Rooche Ethersheet" src="~/assets/img/icons/sidebar_icon.svg" />
         </a>
         <div class="flex flex-grow"></div>
       </div>
