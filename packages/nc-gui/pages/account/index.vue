@@ -147,7 +147,7 @@ const logout = async () => {
             <div class="flex flex-row p-3 items-center h-14">
               <div class="flex-1" />
 
-              <LazyGeneralReleaseInfo />
+              <!-- <LazyGeneralReleaseInfo /> -->
 
               <a-tooltip v-if="!appInfo.ee" placement="bottom" :mouse-enter-delay="1">
                 <template #title>{{ $t('title.switchLanguage') }}</template>
