@@ -11,7 +11,7 @@ services:
       - "8081:8080"
     restart: always
     volumes: 
-      - "nc_data:/usr/app/data"
+      - "nc2_data:/usr/app/data"
   root_db: 
     environment: 
       MYSQL_DATABASE: root_db
@@ -30,10 +30,10 @@ services:
     image: "mysql:8.3.0"
     restart: always
     volumes: 
-      - "db_data:/var/lib/mysql"
+      - "db2_data:/var/lib/mysql"
 #    below line shows how to change charset and collation
 #    uncomment it if necessary
 #    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
 volumes: 
-  db_data: {}
-  nc_data: {}
+  db2_data: {}
+  nc2_data: {}
