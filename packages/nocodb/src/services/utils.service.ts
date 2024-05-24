@@ -366,47 +366,41 @@ export class UtilsService {
     body,
     icon,
     logo,
-    sidebar_icon,
+    horizontal_logo,
   }: {
     body: any;
     icon?: Express.Multer.File;
     logo?: Express.Multer.File;
-    sidebar_icon?: Express.Multer.File;
+    horizontal_logo?: Express.Multer.File;
   }) {
     if (icon) {
       const newIconName = `favicon.ico`;
       const newIconPath = path.join(
         __dirname,
-        process.env.NODE_ENV === 'production'
-          ? '../docker/public'
-          : '../../../nc-gui/public',
+        '../../../nc-gui/public',
         newIconName,
       );
       fs.renameSync(icon.path, newIconPath);
     }
 
     if (logo) {
-      const newLogoName = `logo.svg`;
-      const newLogoPath = path.join(
+      const newIconName = `logo.svg`;
+      const newIconPath = path.join(
         __dirname,
-        process.env.NODE_ENV === 'production'
-          ? '../docker/public'
-          : '../../../nc-gui/public',
-        newLogoName,
+        '../../../nc-gui/public',
+        newIconName,
       );
-      fs.renameSync(logo.path, newLogoPath);
+      fs.renameSync(logo.path, newIconPath);
     }
 
-    if (sidebar_icon) {
-      const newSidebarIconName = `sidebar_icon.svg`;
-      const newSidebarIconPath = path.join(
+    if (horizontal_logo) {
+      const newIconName = `horizontal_logo.svg`;
+      const newIconPath = path.join(
         __dirname,
-        process.env.NODE_ENV === 'production'
-          ? '../docker/public'
-          : '../../../nc-gui/public',
-        newSidebarIconName,
+        '../../../nc-gui/public',
+        newIconName,
       );
-      fs.renameSync(sidebar_icon.path, newSidebarIconPath);
+      fs.renameSync(horizontal_logo.path, newIconPath);
     }
 
     const { title } = body;

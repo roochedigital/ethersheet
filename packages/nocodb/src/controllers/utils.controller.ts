@@ -94,7 +94,7 @@ export class UtilsController {
     FileFieldsInterceptor([
       { name: 'icon', maxCount: 1 },
       { name: 'logo', maxCount: 1 },
-      { name: 'sidebar_icon', maxCount: 1 },
+      { name: 'horizontal_logo', maxCount: 1 },
     ]),
   )
   async setup(
@@ -102,14 +102,16 @@ export class UtilsController {
     files: {
       icon?: Express.Multer.File[];
       logo?: Express.Multer.File[];
-      sidebar_icon?: Express.Multer.File[];
+      horizontal_logo?: Express.Multer.File[];
     },
     @Body() body: any,
   ) {
     const icon = files.icon ? files.icon[0] : undefined;
     const logo = files.logo ? files.logo[0] : undefined;
-    const sidebar_icon = files.sidebar_icon ? files.sidebar_icon[0] : undefined;
-    return await this.utilsService.setup({ body, icon, logo, sidebar_icon });
+    const horizontal_logo = files.horizontal_logo
+      ? files.horizontal_logo[0]
+      : undefined;
+    return await this.utilsService.setup({ body, icon, logo, horizontal_logo });
   }
 
   @UseGuards(PublicApiLimiterGuard)

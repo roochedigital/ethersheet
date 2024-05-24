@@ -7,7 +7,7 @@ interface Form {
     title: string;
     icon: UploadFile[];
     logo: UploadFile[];
-    sidebar_icon: UploadFile[];
+    horizontal_logo: UploadFile[];
 }
 
 definePageMeta({
@@ -31,7 +31,7 @@ const form = reactive<Form>({
   title: '', 
   icon: [],
   logo: [],
-  sidebar_icon: [],
+  horizontal_logo: [],
 })
 
 const formRules: Record<string, RuleObject[]> = {
@@ -44,7 +44,7 @@ const formRules: Record<string, RuleObject[]> = {
   logo: [
     { required: true, message: t('msg.error.logoRequired') }, 
   ], 
-  sidebar_icon: [
+  horizontal_logo: [
     { required: true, message: t('msg.error.sidebarIconRequired') }, 
   ],
 } 
@@ -58,7 +58,7 @@ async function submit() {
     title: form.title,
     icon: form.icon[0].originFileObj,
     logo: form.logo[0].originFileObj,
-    sidebar_icon: form.sidebar_icon[0].originFileObj,
+    horizontal_logo: form.horizontal_logo[0].originFileObj,
   }).then(async () => {
     window.location.href = '/'; 
   }).catch(error => {
@@ -84,7 +84,7 @@ function handleLogoImageInputChange(info: UploadChangeParam<UploadFile<any>>) {
 
 function handleSidebarIconImageInputChange(info: UploadChangeParam<UploadFile<any>>) { 
     const { fileList } = info;
-    form.sidebar_icon = fileList.slice(-1); // Keep only the latest file 
+    form.horizontal_logo = fileList.slice(-1); // Keep only the latest file 
 }
 
 
@@ -156,10 +156,10 @@ function handleSidebarIconImageInputChange(info: UploadChangeParam<UploadFile<an
                 </a-upload>
               </a-form-item> 
  
-              <a-form-item :label="$t('labels.uploadSidebarIcon')" name="sidebar_icon" :rules="formRules.sidebar_icon">
+              <a-form-item :label="$t('labels.uploadHorizontalLogo')" name="horizontal_logo" :rules="formRules.horizontal_logo">
                 <a-upload 
                     list-type="picture-card"
-                    :file-list="form.sidebar_icon" 
+                    :file-list="form.horizontal_logo" 
                     @change="handleSidebarIconImageInputChange"
                     accept="image/svg+xml"  
                     :multiple="false"
