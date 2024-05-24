@@ -51,7 +51,7 @@ export default {
       <div class="flex w-full h-full items-center nc-header-content">
         <div class="flex-1 min-w-0 w-50">
           <nuxt-link :to="isPublic ? '' : '/'">
-            <img src="~/public/horizontal_logo.svg" class="h-11" />
+            <img src="/horizontal_logo.svg" class="h-11" />
           </nuxt-link>
         </div>
 
