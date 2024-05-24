@@ -373,33 +373,34 @@ export class UtilsService {
     logo?: Express.Multer.File;
     horizontal_logo?: Express.Multer.File;
   }) {
+    var isProd = process.env.NODE_ENV === 'production';
+
     if (icon) {
+      var imgPath = isProd ? '/nc-gui/' : '../../../nc-gui/public';
+
       const newIconName = `favicon.ico`;
-      const newIconPath = path.join(
-        __dirname,
-        '../../../nc-gui/public',
-        newIconName,
-      );
+
+      const newIconPath = path.join(__dirname, imgPath, newIconName);
       fs.renameSync(icon.path, newIconPath);
     }
 
     if (logo) {
+      var imgPath = isProd ? '/nc-gui/' : '../../../nc-gui/public';
+
       const newIconName = `logo.svg`;
-      const newIconPath = path.join(
-        __dirname,
-        '../../../nc-gui/public',
-        newIconName,
-      );
+
+      const newIconPath = path.join(__dirname, imgPath, newIconName);
       fs.renameSync(logo.path, newIconPath);
+
+      var imgPath = '../../../nc-gui/public';
     }
 
     if (horizontal_logo) {
+      var imgPath = isProd ? '/nc-gui/' : '../../../nc-gui/public';
+
       const newIconName = `horizontal_logo.svg`;
-      const newIconPath = path.join(
-        __dirname,
-        '../../../nc-gui/public',
-        newIconName,
-      );
+
+      const newIconPath = path.join(__dirname, imgPath, newIconName);
       fs.renameSync(horizontal_logo.path, newIconPath);
     }
 
@@ -409,6 +410,22 @@ export class UtilsService {
     process.env.NC_SETUP = 'false';
 
     return { message: 'Files uploaded and renamed successfully' };
+  }
+
+  async findNuxtFile(dir, regex) {
+    const files = fs.readdirSync(dir);
+
+    console.log(' file:', regex);
+    for (const file of files) {
+      const filePath = path.join(dir, file);
+      if (regex.test(file)) {
+        console.log('Found file:', filePath);
+
+        return filePath; // Return the file path if a matching file is found
+      }
+    }
+
+    return null; // Return null if no matching file is found
   }
 
   async testConnection(param: { body: any }) {
