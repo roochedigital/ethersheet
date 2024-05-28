@@ -5,7 +5,7 @@ services:
       root_db: 
         condition: service_healthy
     environment: 
-      NC_DB: "mysql2://root_db:3306?u=noco&p=password&d=root_db"
+      NC_DB: "mysql2://mysql-ethersheet-root_db-1:3306?u=noco&p=password&d=root_db"
     image: "nocodb-local"
     ports: 
       - "8080:8080"

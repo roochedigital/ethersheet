@@ -5,7 +5,7 @@ services:
       root_db: 
         condition: service_healthy
     environment: 
-      NC_DB: "mysql2://root_db:3306?u=noco&p=password&d=root_db"
+      NC_DB: "mysql2://mysql-ethersheet2-root_db-1:3306?u=noco&p=password&d=root_db"
     image: "nocodb-local"
     ports: 
       - "8081:8080"
@@ -31,6 +31,8 @@ services:
     restart: always
     volumes: 
       - "db2_data:/var/lib/mysql"
+    ports: 
+      - "3308:3306"
 #    below line shows how to change charset and collation
 #    uncomment it if necessary
 #    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
