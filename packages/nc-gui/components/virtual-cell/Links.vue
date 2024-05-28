@@ -164,7 +164,7 @@ watch(
         >
           <MdiPlus
             v-if="(!readOnly && isUIAllowed('dataEdit')) || isForm"
-            class="select-none !text-md text-gray-700 nc-action-icon nc-plus invisible group-hover:visible group-focus:visible"
+            class="select-none !text-md text-gray-700 nc-action-icon nc-plus"
             @click.stop="openListDlg"
           />
         </div>
