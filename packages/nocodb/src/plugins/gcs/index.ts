@@ -1,11 +1,11 @@
 import { XcActionType, XcType } from 'nocodb-sdk';
 import GcsPlugin from './GcsPlugin';
-import type { XcPluginConfig } from 'nc-plugin';
+import type { XcPluginConfig } from '~/types/nc-plugin';
 
 const config: XcPluginConfig = {
   builder: GcsPlugin,
   title: 'GCS',
-  version: '0.0.2',
+  version: '0.0.3',
   logo: 'plugins/gcs.png',
   description:
     'Google Cloud Storage is a RESTful online file storage web service for storing and accessing data on Google Cloud Platform infrastructure.',
@@ -61,7 +61,7 @@ const config: XcPluginConfig = {
       },
     ],
     msgOnInstall:
-      'Successfully installed and attachment will be stored in Google Cloud Storage',
+      'Successfully configured! Attachments will now be stored in Google Cloud Storage.',
     msgOnUninstall: '',
   },
 };

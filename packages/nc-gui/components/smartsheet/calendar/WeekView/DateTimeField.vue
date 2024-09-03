@@ -10,18 +10,25 @@ const {
   formattedData,
   formattedSideBarData,
   calendarRange,
+  selectedDate,
   displayField,
+  viewMetaProperties,
   selectedTime,
   updateRowProperty,
   sideBarFilterOption,
   showSideMenu,
+  updateFormat,
 } = useCalendarViewStoreOrThrow()
+
+const { $e } = useNuxtApp()
 
 const container = ref<null | HTMLElement>(null)
 
 const scrollContainer = ref<null | HTMLElement>(null)
 
 const { width: containerWidth } = useElementSize(container)
+
+const isPublic = inject(IsPublicInj, ref(false))
 
 const { isUIAllowed } = useRoles()
 
@@ -43,6 +50,50 @@ const fieldStyles = computed(() => {
       },
     ]),
   )
+})
+
+const getDayIndex = (date: dayjs.Dayjs) => {
+  let dayIndex = date.day() - 1
+  if (dayIndex === -1) {
+    dayIndex = 6
+  }
+  return dayIndex
+}
+
+const maxVisibleDays = computed(() => {
+  return viewMetaProperties.value?.hide_weekend ? 5 : 7
+})
+
+const currTime = ref(dayjs())
+
+const overlayStyle = computed(() => {
+  if (!containerWidth.value)
+    return {
+      top: 0,
+      left: 0,
+    }
+
+  const left = (containerWidth.value / maxVisibleDays.value) * getDayIndex(currTime.value)
+  const minutes = currTime.value.hour() * 60 + currTime.value.minute()
+
+  const top = (52 / 60) * minutes
+
+  return {
+    width: `${containerWidth.value / maxVisibleDays.value}px`,
+    top: `${top}px`,
+    left: `${left}px`,
+  }
+})
+
+onMounted(() => {
+  const intervalId = setInterval(() => {
+    currTime.value = dayjs()
+  }, 10000) // 10000 ms = 10 seconds
+
+  // Clean up the interval when the component is unmounted
+  onUnmounted(() => {
+    clearInterval(intervalId)
+  })
 })
 
 const getFieldStyle = (field: ColumnType) => {
@@ -83,7 +134,11 @@ const calculateNewDates = useMemoize(
 const datesHours = computed(() => {
   const datesHours: Array<Array<dayjs.Dayjs>> = []
   let startOfWeek = dayjs(selectedDateRange.value.start) ?? dayjs().startOf('week')
-  const endOfWeek = dayjs(selectedDateRange.value.end) ?? dayjs().endOf('week')
+  let endOfWeek = dayjs(selectedDateRange.value.end) ?? dayjs().endOf('week')
+
+  if (maxVisibleDays.value === 5) {
+    endOfWeek = endOfWeek.subtract(2, 'day')
+  }
 
   while (startOfWeek.isSameOrBefore(endOfWeek)) {
     const hours: Array<dayjs.Dayjs> = []
@@ -104,14 +159,6 @@ const datesHours = computed(() => {
   }
   return datesHours
 })
-
-const getDayIndex = (date: dayjs.Dayjs) => {
-  let dayIndex = date.day() - 1
-  if (dayIndex === -1) {
-    dayIndex = 6
-  }
-  return dayIndex
-}
 
 const getGridTime = (date: dayjs.Dayjs, round = false) => {
   const gridCalc = date.hour() * 60 + date.minute()
@@ -181,7 +228,6 @@ const getMaxOverlaps = ({
 
   const dayIndex = row.rowMeta.dayIndex
   const overlapIndex = columnArray[dayIndex].findIndex((column) => column.findIndex((r) => r.rowMeta.id === id) !== -1) + 1
-
   const dfs = (id: string): number => {
     visited.add(id)
     let maxOverlaps = 1
@@ -194,13 +240,26 @@ const getMaxOverlaps = ({
         }
       }
     }
+
     return maxOverlaps
   }
 
   let maxOverlaps = 1
   if (graph.has(id)) {
-    maxOverlaps = dfs(id)
+    dfs(id)
   }
+
+  const overlapIterations: Array<number> = []
+
+  columnArray[dayIndex]
+    .flat()
+    .filter((record) => visited.has(record.rowMeta.id!))
+    .forEach((record) => {
+      overlapIterations.push(record.rowMeta.overLapIteration!)
+    })
+
+  maxOverlaps = Math.max(...overlapIterations)
+
   return { maxOverlaps, dayIndex, overlapIndex }
 }
 
@@ -222,11 +281,15 @@ const recordsAcrossAllRange = computed<{
       records: [],
       gridTimeMap: new Map(),
     }
-  const perWidth = containerWidth.value / 7
+  const perWidth = containerWidth.value / maxVisibleDays.value
   const perHeight = 52
 
   const scheduleStart = dayjs(selectedDateRange.value.start).startOf('day')
-  const scheduleEnd = dayjs(selectedDateRange.value.end).endOf('day')
+  let scheduleEnd = dayjs(selectedDateRange.value.end).endOf('day')
+
+  if (maxVisibleDays.value === 5) {
+    scheduleEnd = scheduleEnd.subtract(2, 'day')
+  }
 
   const columnArray: Array<Array<Array<Row>>> = [[[]]]
   const gridTimeMap = new Map<
@@ -476,24 +539,36 @@ const recordsAcrossAllRange = computed<{
       }
     }
     for (const record of recordsToDisplay) {
-      const { maxOverlaps, overlapIndex } = getMaxOverlaps({
+      const {
+        maxOverlaps,
+        overlapIndex,
+        dayIndex: tDayIndex,
+      } = getMaxOverlaps({
         row: record,
         columnArray,
         graph: graph.get(record.rowMeta.dayIndex!) ?? new Map(),
       })
 
       const dayIndex = record.rowMeta.dayIndex ?? tDayIndex
+
+      let display = 'block'
+
+      if (maxVisibleDays.value === 5) {
+        if (dayIndex === 5 || dayIndex === 6) {
+          display = 'none'
+        }
+      }
+
       record.rowMeta.numberOfOverlaps = maxOverlaps
 
       let width = 0
       let left = 100
       const majorLeft = dayIndex * perWidth
-      let display = 'block'
 
       if (record.rowMeta.overLapIteration! - 1 > 2) {
         display = 'none'
       } else {
-        width = 100 / Math.min(maxOverlaps, 3) / 7
+        width = 100 / Math.min(maxOverlaps, 3) / maxVisibleDays.value
         left = width * (overlapIndex - 1)
       }
       record.rowMeta.style = {
@@ -532,6 +607,8 @@ const useDebouncedRowUpdate = useDebounceFn((row: Row, updateProperty: string[],
 const onResize = (event: MouseEvent) => {
   if (!isUIAllowed('dataEdit') || !container.value || !resizeRecord.value || !scrollContainer.value) return
 
+  if (resizeRecord.value.rowMeta.range?.is_readonly) return
+
   const { width, left, top, bottom } = container.value.getBoundingClientRect()
 
   const { scrollHeight } = container.value
@@ -557,7 +634,7 @@ const onResize = (event: MouseEvent) => {
   const ogEndDate = dayjs(resizeRecord.value.row[toCol.title!])
   const ogStartDate = dayjs(resizeRecord.value.row[fromCol.title!])
 
-  const day = Math.floor(percentX * 7)
+  const day = Math.floor(percentX * maxVisibleDays.value)
   const hour = Math.floor(percentY * 23)
   const minutes = Math.round((percentY * 24 * 60) % 60)
 
@@ -579,7 +656,7 @@ const onResize = (event: MouseEvent) => {
       ...resizeRecord.value,
       row: {
         ...resizeRecord.value.row,
-        [toCol.title!]: newEndDate.format('YYYY-MM-DD HH:mm:ssZ'),
+        [toCol.title!]: newEndDate.format(updateFormat.value),
       },
     }
   } else if (resizeDirection.value === 'left') {
@@ -596,7 +673,7 @@ const onResize = (event: MouseEvent) => {
       ...resizeRecord.value,
       row: {
         ...resizeRecord.value.row,
-        [fromCol.title!]: dayjs(newStartDate).format('YYYY-MM-DD HH:mm:ssZ'),
+        [fromCol.title!]: dayjs(newStartDate).format(updateFormat.value),
       },
     }
   }
@@ -620,6 +697,9 @@ const onResizeEnd = () => {
 
 const onResizeStart = (direction: 'right' | 'left', event: MouseEvent, record: Row) => {
   if (!isUIAllowed('dataEdit')) return
+
+  if (record.rowMeta.range?.is_readonly) return
+
   resizeInProgress.value = true
   resizeDirection.value = direction
   resizeRecord.value = record
@@ -650,7 +730,7 @@ const calculateNewRow = (
 
   if (!fromCol) return { newRow: null, updatedProperty: [] }
 
-  const day = Math.max(0, Math.min(6, Math.floor(percentX * 7)))
+  const day = Math.max(0, Math.min(6, Math.floor(percentX * maxVisibleDays.value)))
   const hour = Math.max(0, Math.min(23, Math.floor(percentY * 24)))
 
   const minutes = Math.round(((percentY * 24 * 60) % 60) / 15) * 15
@@ -665,7 +745,7 @@ const calculateNewRow = (
     ...dragRecord.value,
     row: {
       ...dragRecord.value.row,
-      [fromCol.title!]: dayjs(newStartDate).utc().format('YYYY-MM-DD HH:mm:ssZ'),
+      [fromCol.title!]: dayjs(newStartDate).format(updateFormat.value),
     },
   }
 
@@ -683,7 +763,7 @@ const calculateNewRow = (
       endDate = newStartDate.clone()
     }
 
-    newRow.row[toCol.title!] = dayjs(endDate).utc().format('YYYY-MM-DD HH:mm:ssZ')
+    newRow.row[toCol.title!] = dayjs(endDate).format(updateFormat.value)
     updatedProperty.push(toCol.title!)
   }
 
@@ -749,19 +829,22 @@ const stopDrag = (event: MouseEvent) => {
   if (newRow) {
     updateRowProperty(newRow, updatedProperty, false)
   }
+  $e('c:calendar:week:drag-record')
 
   document.removeEventListener('mousemove', onDrag)
   document.removeEventListener('mouseup', stopDrag)
 }
 
 const dragStart = (event: MouseEvent, record: Row) => {
-  if (!isUIAllowed('dataEdit')) return
   if (resizeInProgress.value) return
   let target = event.target as HTMLElement
 
   isDragging.value = false
 
   dragTimeout.value = setTimeout(() => {
+    if (!isUIAllowed('dataEdit')) return
+    if (record.rowMeta.range?.is_readonly) return
+
     isDragging.value = true
     while (!target.classList.contains('draggable-record')) {
       target = target.parentElement as HTMLElement
@@ -805,12 +888,15 @@ const dropEvent = (event: DragEvent) => {
       record: Row
     } = JSON.parse(data)
 
+    if (record.rowMeta.range?.is_readonly) return
+
     dragRecord.value = record
 
     const { newRow, updatedProperty } = calculateNewRow(event, true)
 
     if (newRow) {
       updateRowProperty(newRow, updatedProperty, false)
+      $e('c:calendar:day:drag-record')
     }
   }
 }
@@ -844,7 +930,7 @@ const addRecord = (date: dayjs.Dayjs) => {
   if (!fromCol) return
   const newRecord = {
     row: {
-      [fromCol.title!]: date.format('YYYY-MM-DD HH:mm:ssZ'),
+      [fromCol.title!]: date.format(updateFormat.value),
     },
   }
   emits('newRecord', newRecord)
@@ -865,18 +951,36 @@ watch(
 <template>
   <div
     ref="scrollContainer"
-    class="h-[calc(100vh-9.9rem)] prevent-select relative flex w-full overflow-y-auto nc-scrollbar-md"
+    class="h-[calc(100vh-5.4rem)] prevent-select relative flex w-full overflow-y-auto nc-scrollbar-md"
     data-testid="nc-calendar-week-view"
     @drop="dropEvent"
   >
-    <div class="flex sticky h-7.1 z-1 top-0 pl-16 bg-gray-50 w-full">
+    <div
+      v-if="!isPublic && dayjs().isBetween(selectedDateRange.start, selectedDateRange.end)"
+      class="absolute ml-16 mt-7 pointer-events-none z-4"
+      :style="overlayStyle"
+    >
+      <div class="flex w-full items-center">
+        <span
+          class="text-brand-500 rounded-md text-xs border-1 pointer-events-auto px-0.5 border-brand-200 cursor-pointer bg-brand-50"
+          @click="addRecord(dayjs())"
+        >
+          {{ dayjs().format('hh:mm A') }}
+        </span>
+        <div class="flex-1 border-b-1 border-brand-500"></div>
+      </div>
+    </div>
+
+    <div class="flex sticky h-6 z-1 top-0 pl-16 bg-gray-50 w-full">
       <div
         v-for="date in datesHours"
         :key="date[0].toISOString()"
         :class="{
           'text-brand-500': date[0].isSame(dayjs(), 'date'),
+          'w-1/5': maxVisibleDays === 5,
+          'w-1/7': maxVisibleDays === 7,
         }"
-        class="w-1/7 text-center text-sm text-gray-500 w-full py-1 border-gray-200 last:border-r-0 border-b-1 border-l-1 border-r-0 bg-gray-50"
+        class="text-center text-[10px] font-semibold leading-4 flex items-center justify-center uppercase text-gray-500 w-full py-1 border-gray-200 last:border-r-0 border-b-1 border-l-1 border-r-0 bg-gray-50"
       >
         {{ dayjs(date[0]).format('DD ddd') }}
       </div>
@@ -885,25 +989,38 @@ watch(
       <div
         v-for="(hour, index) in datesHours[0]"
         :key="index"
-        class="h-13 first:mt-0 pt-7.1 nc-calendar-day-hour text-center font-semibold text-xs text-gray-400 py-1"
+        class="h-13 first:mt-0 pt-7.1 nc-calendar-day-hour text-right pr-2 font-semibold text-xs text-gray-400 py-1"
       >
         {{ hour.format('hh a') }}
       </div>
     </div>
     <div ref="container" class="absolute ml-16 flex w-[calc(100%-64px)]">
-      <div v-for="(date, index) in datesHours" :key="index" class="h-full w-1/7 mt-7.1" data-testid="nc-calendar-week-day">
+      <div
+        v-for="(date, index) in datesHours"
+        :key="index"
+        :class="{
+          'w-1/5': maxVisibleDays === 5,
+          'w-1/7': maxVisibleDays === 7,
+        }"
+        class="h-full mt-5.95"
+        data-testid="nc-calendar-week-day"
+      >
         <div
           v-for="(hour, hourIndex) in date"
           :key="hourIndex"
           :class="{
+            'border-1 !border-brand-500 !bg-gray-100':
+              hour.isSame(selectedTime, 'hour') && (hour.get('day') === 6 || hour.get('day') === 0),
             'border-1 !border-brand-500 bg-gray-50': hour.isSame(selectedTime, 'hour'),
-            '!bg-gray-50': hour.get('day') === 0 || hour.get('day') === 6,
+            'bg-gray-50 hover:bg-gray-100': hour.get('day') === 0 || hour.get('day') === 6,
+            'hover:bg-gray-50': hour.get('day') !== 0 && hour.get('day') !== 6,
           }"
-          class="text-center relative h-13 text-sm text-gray-500 w-full hover:bg-gray-50 py-1 border-transparent border-1 border-x-gray-100 border-t-gray-100 border-l-gray-200"
+          class="text-center relative transition h-13 text-sm text-gray-500 w-full py-1 border-transparent border-1 border-x-gray-100 border-t-gray-100 border-l-gray-200"
           data-testid="nc-calendar-week-hour"
           @dblclick="addRecord(hour)"
           @click="
             () => {
+              selectedDate = hour
               selectedTime = hour
               dragRecord = undefined
             }
@@ -926,17 +1043,18 @@ watch(
         </div>
       </div>
 
-      <div
-        class="absolute pointer-events-none inset-0 overflow-hidden !mt-[29px]"
-        data-testid="nc-calendar-week-record-container"
-      >
+      <div class="absolute pointer-events-none inset-0 overflow-hidden !mt-5.95" data-testid="nc-calendar-week-record-container">
         <template v-for="(record, rowIndex) in recordsAcrossAllRange.records" :key="rowIndex">
           <div
             v-if="record.rowMeta.style?.display !== 'none'"
             :data-testid="`nc-calendar-week-record-${record.row[displayField!.title!]}`"
             :data-unique-id="record.rowMeta!.id"
             :style="record.rowMeta!.style "
-            class="absolute draggable-record w-1/7 group cursor-pointer pointer-events-auto"
+            :class="{
+              'w-1/5': maxVisibleDays === 5,
+              'w-1/7': maxVisibleDays === 7,
+            }"
+            class="absolute transition draggable-record group cursor-pointer pointer-events-auto"
             @mousedown.stop="dragStart($event, record)"
             @mouseleave="hoverRecord = null"
             @mouseover="hoverRecord = record.rowMeta.id"

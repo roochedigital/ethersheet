@@ -1,7 +1,9 @@
 <script lang="ts" setup>
-const { isLoading, appInfo } = useGlobal()
+const { isLoading } = useGlobal()
 
-const { sharedView } = useSharedView()
+const { isMobileMode } = storeToRefs(useConfigStore())
+
+const { sharedView, allowCSVDownload } = useSharedView()
 
 const router = useRouter()
 
@@ -68,23 +70,67 @@ export default {
               <template v-if="isLoading">
                 <span class="text-white" data-testid="nc-loading">{{ $t('general.loading') }}</span>
 
-                <component :is="iconMap.reload" :class="{ 'animate-infinite animate-spin ': isLoading }" />
-              </template>
+              <component :is="iconMap.reload" :class="{ 'animate-infinite animate-spin ': isLoading }" />
+            </template>
 
-              <div v-else class="text-xl font-semibold truncate text-white nc-shared-view-title flex gap-2 items-center">
-                <GeneralViewIcon v-if="sharedView" class="!text-xl" :meta="sharedView" />
+            <div v-else class="text-sm font-semibold truncate nc-shared-view-title flex gap-2 items-center">
+              <GeneralViewIcon v-if="sharedView" class="h-4 w-4 ml-0.5" :meta="sharedView" />
+
+              <span class="truncate">
                 {{ sharedView?.title }}
-              </div>
+              </span>
+
+              <NcTooltip v-if="sharedView?.description?.length" placement="bottom">
+                <template #title>
+                  {{ sharedView?.description }}
+                </template>
+
+                <NcButton type="text" class="!hover:bg-transparent" size="xsmall">
+                  <GeneralIcon icon="info" class="!w-3.5 !h-3.5 nc-info-icon text-gray-600" />
+                </NcButton>
+              </NcTooltip>
             </div>
           </div>
         </div>
 
-        <div class="flex-1" />
-      </a-layout-header>
+        <div class="flex items-center gap-3">
+          <LazySmartsheetToolbarExport v-if="allowCSVDownload" />
 
-      <div class="w-full overflow-hidden" style="height: calc(100vh - var(--topbar-height))">
+          <a href="https://app.nocodb.com/#/signin" target="_blank" class="!no-underline xs:hidden" rel="noopener">
+            <NcButton size="xs"> {{ $t('labels.signUpForFree') }} </NcButton>
+          </a>
+        </div>
+      </a-layout-header>
+      <div
+        class="nc-shared-view-container w-full overflow-hidden"
+        :class="{
+          'nc-shared-mobile-view': isMobileMode,
+        }"
+      >
         <slot />
       </div>
     </a-layout>
   </a-layout>
 </template>
+
+<style lang="scss" scoped>
+#nc-app {
+  .ant-layout-header {
+    @apply !h-[46px];
+
+    line-height: unset;
+  }
+
+  :deep(.nc-table-toolbar) {
+    @apply px-2;
+  }
+
+  .nc-shared-view-container {
+    height: calc(100vh - (var(--topbar-height) - 3.6px));
+
+    @supports (height: 100dvh) {
+      height: calc(100dvh - (var(--topbar-height) - 3.6px));
+    }
+  }
+}
+</style>

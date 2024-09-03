@@ -182,7 +182,7 @@ export class TreeViewPage extends BasePage {
     await this.waitForTableOptions({ title });
 
     await this.get().locator(`.nc-base-tree-tbl-${tableTitle}`).locator('.nc-tbl-context-menu').click();
-    await this.rootPage.locator('.ant-dropdown').locator('.nc-menu-item:has-text("Delete")').click();
+    await this.rootPage.locator('.ant-dropdown').locator('.nc-menu-item.nc-table-delete:has-text("Delete")').click();
 
     await this.waitForResponse({
       uiAction: async () => {
@@ -205,7 +205,7 @@ export class TreeViewPage extends BasePage {
     await this.waitForTableOptions({ title });
 
     await this.get().locator(`.nc-base-tree-tbl-${tableTitle}`).locator('.nc-tbl-context-menu').click();
-    await this.rootPage.locator('.ant-dropdown').locator('.nc-menu-item:has-text("Rename")').click();
+    await this.rootPage.locator('.ant-dropdown').locator('.nc-table-rename.nc-menu-item:has-text("Rename")').click();
 
     await this.dashboard.get().locator('[placeholder="Enter table name"]').fill(newTitle);
     await this.dashboard.get().locator('button:has-text("Rename Table")').click();
@@ -377,5 +377,14 @@ export class TreeViewPage extends BasePage {
     await this.rootPage.locator('div.ant-modal-content').locator(`button.ant-btn:has-text("Confirm")`).click();
 
     await this.rootPage.waitForTimeout(10000);
+  }
+
+  async openProjectSourceSettings(param: { title: string; context: NcContext }) {
+    param.title = this.scopedProjectTitle({ title: param.title, context: param.context });
+
+    await this.openProjectContextMenu({ baseTitle: param.title });
+    const contextMenu = this.dashboard.get().locator('.ant-dropdown-menu.nc-scrollbar-md:visible');
+    await contextMenu.waitFor();
+    await contextMenu.locator(`.ant-dropdown-menu-item:has-text("Settings")`).click();
   }
 }

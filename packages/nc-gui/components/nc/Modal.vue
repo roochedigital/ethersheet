@@ -8,6 +8,7 @@ const props = withDefaults(
     maskClosable?: boolean
     showSeparator?: boolean
     wrapClassName?: string
+    closable?: boolean
   }>(),
   {
     size: 'medium',
@@ -15,12 +16,15 @@ const props = withDefaults(
     maskClosable: true,
     showSeparator: true,
     wrapClassName: '',
+    closable: false,
   },
 )
 
 const emits = defineEmits(['update:visible'])
 
-const { width: propWidth, destroyOnClose, maskClosable, wrapClassName: _wrapClassName, showSeparator } = props
+const { width: propWidth, destroyOnClose, wrapClassName: _wrapClassName, showSeparator } = props
+
+const { maskClosable } = toRefs(props)
 
 const { isMobileMode } = useGlobal()
 
@@ -87,7 +91,7 @@ const slots = useSlots()
     :class="{ active: visible }"
     :width="width"
     :centered="true"
-    :closable="false"
+    :closable="closable"
     :wrap-class-name="newWrapClassName"
     :footer="null"
     :mask-closable="maskClosable"
@@ -103,9 +107,9 @@ const slots = useSlots()
       <div
         v-if="slots.header"
         :class="{
-          'border-b-1 border-gray-100': showSeparator,
+          'border-b-1 border-gray-200': showSeparator,
         }"
-        class="flex pb-2 mb-2 text-lg font-medium"
+        class="flex pb-2 mb-2 nc-modal-header text-lg font-medium"
       >
         <slot name="header" />
       </div>

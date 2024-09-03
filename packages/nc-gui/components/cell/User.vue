@@ -32,7 +32,11 @@ const activeCell = inject(ActiveCellInj, ref(false))
 
 const basesStore = useBases()
 
+const baseStore = useBase()
+
 const { basesUser } = storeToRefs(basesStore)
+
+const { idUserMap } = storeToRefs(baseStore)
 
 const baseUsers = computed(() => (meta.value.base_id ? basesUser.value.get(meta.value.base_id) || [] : []))
 
@@ -122,8 +126,20 @@ const editAllowed = computed(() => (hasEditRoles.value || isForm.value) && activ
 const vModel = computed({
   get: () => {
     let selected: { label: string; value: string }[] = []
-    if (typeof modelValue === 'string') {
-      const idsOrMails = modelValue.split(',').map((idOrMail) => idOrMail.trim())
+
+    let localModelValue = modelValue
+
+    // if stringified json
+    if (typeof localModelValue === 'string' && /^\s*[{[]/.test(localModelValue)) {
+      try {
+        localModelValue = JSON.parse(localModelValue)
+      } catch (e) {
+        // do nothing
+      }
+    }
+
+    if (typeof localModelValue === 'string') {
+      const idsOrMails = localModelValue.split(',').map((idOrMail) => idOrMail.trim())
       selected = idsOrMails.reduce((acc, idOrMail) => {
         const user = options.value.find((u) => u.id === idOrMail || u.email === idOrMail)
         if (user) {
@@ -135,8 +151,8 @@ const vModel = computed({
         return acc
       }, [] as { label: string; value: string }[])
     } else {
-      selected = modelValue
-        ? (Array.isArray(modelValue) ? modelValue : [modelValue]).reduce((acc, item) => {
+      selected = localModelValue
+        ? (Array.isArray(localModelValue) ? localModelValue : [localModelValue]).reduce((acc, item) => {
             const label = item?.display_name || item?.email
             if (label) {
               acc.push({
@@ -291,6 +307,11 @@ const filterOption = (input: string, option: any) => {
     return searchVal.toLowerCase().includes(input.toLowerCase())
   }
 }
+
+// check if user is part of the base
+const isCollaborator = (userIdOrEmail) => {
+  return !idUserMap.value?.[userIdOrEmail]?.deleted
+}
 </script>
 
 <template>
@@ -335,6 +356,7 @@ const filterOption = (input: string, option: any) => {
                     :name="op.display_name?.trim() ? op.display_name?.trim() : ''"
                     :email="op.email"
                     class="!text-[0.65rem]"
+                    :disabled="!isCollaborator(op.id)"
                   />
                 </div>
                 <NcTooltip class="truncate max-w-full" show-on-truncate-only>
@@ -347,6 +369,9 @@ const filterOption = (input: string, option: any) => {
                       wordBreak: 'keep-all',
                       whiteSpace: 'nowrap',
                       display: 'inline',
+                    }"
+                    :class="{
+                      'text-gray-600': !isCollaborator(op.id || op.email),
                     }"
                   >
                     {{ op.display_name?.trim() || op.email }}
@@ -396,6 +421,7 @@ const filterOption = (input: string, option: any) => {
             >
               <div class="flex-none">
                 <GeneralUserIcon
+                  :disabled="!isCollaborator(selectedOpt.value)"
                   size="auto"
                   :name="!selectedOpt.label?.includes('@') ? selectedOpt.label.trim() : ''"
                   :email="selectedOpt.label"
@@ -412,6 +438,9 @@ const filterOption = (input: string, option: any) => {
                     wordBreak: 'keep-all',
                     whiteSpace: 'nowrap',
                     display: 'inline',
+                  }"
+                  :class="{
+                    'text-gray-600': !isCollaborator(selectedOpt.value),
                   }"
                 >
                   {{ selectedOpt.label }}
@@ -528,9 +557,16 @@ const filterOption = (input: string, option: any) => {
                   :name="!label?.includes('@') ? label.trim() : ''"
                   :email="label"
                   class="!text-[0.65rem]"
+                  :disabled="!isCollaborator(val)"
                 />
               </div>
-              {{ label }}
+              <span
+                :class="{
+                  'text-gray-600': !isCollaborator(val),
+                }"
+              >
+                {{ label }}
+              </span>
             </span>
           </a-tag>
         </template>

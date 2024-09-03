@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import {
   type BoolType,
+  type ButtonType,
   type ColumnType,
   type LookupType,
   type RollupType,
@@ -37,7 +38,11 @@ const { basesUser } = storeToRefs(basesStore)
 
 const { isXcdbBase, isMssql, isMysql } = useBase()
 
-const sqlUi = ref(column.value?.source_id ? sqlUis.value[column.value?.source_id] : Object.values(sqlUis.value)[0])
+const sqlUi = ref(
+  column.value?.source_id && sqlUis.value[column.value?.source_id]
+    ? sqlUis.value[column.value?.source_id]
+    : Object.values(sqlUis.value)[0],
+)
 
 const abstractType = computed(() => column.value && sqlUi.value.getAbstractType(column.value))
 
@@ -319,7 +324,7 @@ const parseValue = (value: any, col: ColumnType): string => {
   if (isRollup(col)) {
     return getRollupValue(value, col)
   }
-  if (isLookup(col)) {
+  if (isLookup(col) || isLTAR(col.uidt, col.colOptions)) {
     return getLookupValue(value, col)
   }
   if (isCreatedOrLastModifiedTimeCol(col)) {
@@ -333,6 +338,18 @@ const parseValue = (value: any, col: ColumnType): string => {
   }
   if (isLink(col)) {
     return getLinksValue(value, col)
+  }
+
+  if (isFormula(col) && col?.meta?.display_type) {
+    return parseValue(value, {
+      uidt: col?.meta?.display_type,
+      ...col?.meta?.display_column_meta,
+    })
+  }
+
+  if (isButton(col)) {
+    if ((col.colOptions as ButtonType).type === 'url') return value
+    else return col.colOptions?.label
   }
 
   return value as unknown as string

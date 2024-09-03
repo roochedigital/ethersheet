@@ -2,6 +2,7 @@ import type { Ref } from 'vue'
 import type { RuleObject } from 'ant-design-vue/es/form'
 import type { ColumnType, FormType, TableType, ViewType } from 'nocodb-sdk'
 import { RelationTypes, UITypes, isLinksOrLTAR } from 'nocodb-sdk'
+import type { ValidateInfo } from 'ant-design-vue/es/form/useForm'
 
 const useForm = Form.useForm
 
@@ -40,17 +41,41 @@ const [useProvideFormViewStore, useFormViewStore] = useInjectionState(
       return null
     })
 
+    const fieldMappings = computed(() => {
+      const uniqueFieldNames: Set<string> = new Set()
+
+      return visibleColumns.value.reduce((acc, c) => {
+        acc[c.title] = getValidFieldName(c.title, uniqueFieldNames)
+        return acc
+      }, {} as Record<string, string>)
+    })
+
     const validators = computed(() => {
       const rulesObj: Record<string, RuleObject[]> = {}
 
-      if (!visibleColumns.value) return rulesObj
+      if (!visibleColumns.value || !Object.keys(fieldMappings.value).length) return rulesObj
 
       for (const column of visibleColumns.value) {
         let rules: RuleObject[] = [
           {
-            required: isRequired(column, column.required),
-            message: t('msg.error.fieldRequired'),
-            ...(column.uidt === UITypes.Checkbox && isRequired(column, column.required) ? { type: 'enum', enum: [1, true] } : {}),
+            validator: (_rule: RuleObject, value: any) => {
+              return new Promise((resolve, reject) => {
+                if (isRequired(column, column.required)) {
+                  if (typeof value === 'string') {
+                    value = value.trim()
+                  }
+
+                  if (
+                    (column.uidt === UITypes.Checkbox && !value) ||
+                    (column.uidt !== UITypes.Checkbox && !requiredFieldValidatorFn(value))
+                  ) {
+                    return reject(t('msg.error.fieldRequired'))
+                  }
+                }
+
+                return resolve()
+              })
+            },
           },
         ]
 
@@ -58,24 +83,62 @@ const [useProvideFormViewStore, useFormViewStore] = useInjectionState(
         rules = [...rules, ...additionalRules]
 
         if (rules.length) {
-          rulesObj[column.title!] = rules
+          rulesObj[fieldMappings.value[column.title!]] = rules
         }
       }
 
       return rulesObj
     })
 
+    const fieldMappingFormState = computed(() => {
+      if (!Object.keys(fieldMappings.value).length) return {}
+
+      return Object.keys(formState.value).reduce((acc, key) => {
+        acc[fieldMappings.value[key]] = formState.value[key]
+        return acc
+      }, {} as Record<string, any>)
+    })
+
     // Form field validation
-    const { validate, validateInfos, clearValidate } = useForm(formState, validators)
+    const { validate, validateInfos, clearValidate } = useForm(fieldMappingFormState, validators)
 
     const validateActiveField = async (col: ColumnType) => {
+      if (!col.title) return
+
+      if (fieldMappings.value[col.title] === undefined) {
+        console.warn('Missing mapping field for:', col.title)
+        return
+      }
+
       try {
-        await validate(col.title)
+        await validate(fieldMappings.value[col.title])
       } catch {}
+    }
+
+    const isValidRedirectUrl = (): ValidateInfo => {
+      if (typeof formViewData.value?.redirect_url !== 'string') return { validateStatus: '', help: undefined }
+
+      const url = formViewData.value?.redirect_url?.trim() ?? ''
+
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        return {
+          validateStatus: 'error',
+          help: 'Redirect url must starts with `http://` or `https://`',
+        }
+      }
+
+      return { validateStatus: '', help: undefined }
     }
 
     const updateView = useDebounceFn(
       () => {
+        if (isValidRedirectUrl().validateStatus === 'error') {
+          formViewData.value = {
+            ...formViewData.value,
+            redirect_url: '',
+          }
+        }
+
         updateFormView(formViewData.value)
       },
       300,
@@ -119,6 +182,9 @@ const [useProvideFormViewStore, useFormViewStore] = useInjectionState(
       validate,
       validateInfos,
       clearValidate,
+      fieldMappings,
+      isValidRedirectUrl,
+      formViewData,
     }
   },
   'form-view-store',

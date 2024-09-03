@@ -31,6 +31,8 @@ const readOnly = inject(ReadonlyInj, ref(false))
 
 const filterQueryRef = ref<HTMLInputElement>()
 
+const { isDataReadOnly } = useRoles()
+
 const { isSharedBase } = storeToRefs(useBase())
 
 const {
@@ -94,10 +96,7 @@ const fields = computedInject(FieldsInj, (_fields) => {
   return (relatedTableMeta.value.columns ?? [])
     .filter((col) => !isSystemColumn(col) && !isPrimary(col) && !isLinksOrLTAR(col) && !isAttachment(col))
     .sort((a, b) => {
-      if (a.meta?.defaultViewColOrder !== undefined && b.meta?.defaultViewColOrder !== undefined) {
-        return a.meta.defaultViewColOrder - b.meta.defaultViewColOrder
-      }
-      return 0
+      return (a.meta?.defaultViewColOrder ?? Infinity) - (b.meta?.defaultViewColOrder ?? Infinity)
     })
     .slice(0, isMobileMode.value ? 1 : 3)
 })
@@ -410,7 +409,7 @@ const onFilterChange = () => {
       <div class="nc-dropdown-link-record-footer bg-gray-100 p-2 rounded-b-xl flex items-center justify-between gap-3 min-h-11">
         <div class="flex items-center gap-2">
           <NcButton
-            v-if="!isPublic"
+            v-if="!isPublic && !isDataReadOnly"
             v-e="['c:row-expand:open']"
             size="small"
             class="!hover:(bg-white text-brand-500) !h-7 !text-small"
@@ -453,6 +452,7 @@ const onFilterChange = () => {
       <LazySmartsheetExpandedForm
         v-if="expandedFormRow && expandedFormDlg"
         v-model="expandedFormDlg"
+        :load-row="!isPublic"
         :close-after-save="isExpandedFormCloseAfterSave"
         :meta="relatedTableMeta"
         :new-record-header="
@@ -475,6 +475,7 @@ const onFilterChange = () => {
         :state="newRowState"
         :row-id="extractPkFromRow(expandedFormRow, relatedTableMeta.columns as ColumnType[])"
         use-meta-fields
+        maintain-default-view-order
         new-record-submit-btn-text="Create & Link"
         @created-record="onCreatedRecord"
       />

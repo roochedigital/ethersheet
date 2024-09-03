@@ -5,6 +5,7 @@ import {
 } from 'nocodb-sdk';
 import { Logger } from '@nestjs/common';
 import type { ColumnReqType, ColumnType } from 'nocodb-sdk';
+import type { NcContext } from '~/interface/config';
 import FormulaColumn from '~/models/FormulaColumn';
 import LinkToAnotherRecordColumn from '~/models/LinkToAnotherRecordColumn';
 import LookupColumn from '~/models/LookupColumn';
@@ -16,7 +17,13 @@ import Sort from '~/models/Sort';
 import Filter from '~/models/Filter';
 import QrCodeColumn from '~/models/QrCodeColumn';
 import BarcodeColumn from '~/models/BarcodeColumn';
-import { LinksColumn } from '~/models';
+import {
+  ButtonColumn,
+  FileReference,
+  GalleryView,
+  KanbanView,
+  LinksColumn,
+} from '~/models';
 import { extractProps } from '~/helpers/extractProps';
 import { NcError } from '~/helpers/catchError';
 import addFormulaErrorIfMissingColumn from '~/helpers/addFormulaErrorIfMissingColumn';
@@ -52,11 +59,13 @@ const logger = new Logger('Column');
 
 export default class Column<T = any> implements ColumnType {
   public fk_model_id: string;
+  public fk_workspace_id?: string;
   public base_id: string;
   public source_id: string;
 
   public column_name: string;
   public title: string;
+  public description: string;
 
   public uidt: UITypes;
   public dt: string;
@@ -92,8 +101,12 @@ export default class Column<T = any> implements ColumnType {
     Object.assign(this, data);
   }
 
-  public async getModel(ncMeta = Noco.ncMeta): Promise<Model> {
+  public async getModel(
+    context: NcContext,
+    ncMeta = Noco.ncMeta,
+  ): Promise<Model> {
     return Model.getByIdOrName(
+      context,
       {
         id: this.fk_model_id,
       },
@@ -102,6 +115,7 @@ export default class Column<T = any> implements ColumnType {
   }
 
   public static async insert<T>(
+    context: NcContext,
     column: Partial<T> & {
       source_id?: string;
       [key: string]: any;
@@ -144,6 +158,8 @@ export default class Column<T = any> implements ColumnType {
       'source_id',
       'system',
       'meta',
+      'virtual',
+      'description',
     ]);
 
     if (!insertObj.column_name) {
@@ -170,24 +186,24 @@ export default class Column<T = any> implements ColumnType {
       else insertObj.validate = JSON.stringify(column.validate);
     }
 
-    if (!(column.base_id && column.source_id)) {
+    if (!column.source_id) {
       const model = await Model.getByIdOrName(
+        context,
         { id: column.fk_model_id },
         ncMeta,
       );
-      insertObj.base_id = model.base_id;
       insertObj.source_id = model.source_id;
     }
 
     if (!column.uidt) throw new Error('UI Datatype not found');
     const row = await ncMeta.metaInsert2(
-      null, //column.base_id || column.source_id,
-      null, //column.db_alias,
+      context.workspace_id,
+      context.base_id,
       MetaTable.COLUMNS,
       insertObj,
     );
 
-    const col = await this.get({ colId: row.id }, ncMeta);
+    const col = await this.get(context, { colId: row.id }, ncMeta);
 
     await NocoCache.appendToList(
       CacheScope.COLUMN,
@@ -195,9 +211,10 @@ export default class Column<T = any> implements ColumnType {
       `${CacheScope.COLUMN}:${row.id}`,
     );
 
-    await this.insertColOption(column, row.id, ncMeta);
+    await this.insertColOption(context, column, row.id, ncMeta);
 
     await View.insertColumnToAllViews(
+      context,
       {
         fk_column_id: row.id,
         fk_model_id: column.fk_model_id,
@@ -216,12 +233,13 @@ export default class Column<T = any> implements ColumnType {
       ncMeta,
     );
 
-    await View.clearSingleQueryCache(column.fk_model_id, null, ncMeta);
+    await View.clearSingleQueryCache(context, column.fk_model_id, null, ncMeta);
 
     return col;
   }
 
   private static async insertColOption<T>(
+    context,
     column: Partial<T> & { source_id?: string; [p: string]: any },
     colId,
     ncMeta = Noco.ncMeta,
@@ -230,6 +248,7 @@ export default class Column<T = any> implements ColumnType {
       case UITypes.Lookup: {
         // LookupColumn.insert()
         await LookupColumn.insert(
+          context,
           {
             fk_column_id: colId,
             fk_relation_column_id: column.fk_relation_column_id,
@@ -241,6 +260,7 @@ export default class Column<T = any> implements ColumnType {
       }
       case UITypes.Rollup: {
         await RollupColumn.insert(
+          context,
           {
             fk_column_id: colId,
             fk_relation_column_id: column.fk_relation_column_id,
@@ -255,6 +275,7 @@ export default class Column<T = any> implements ColumnType {
       case UITypes.Links:
       case UITypes.LinkToAnotherRecord: {
         await LinkToAnotherRecordColumn.insert(
+          context,
           {
             fk_column_id: colId,
 
@@ -265,6 +286,7 @@ export default class Column<T = any> implements ColumnType {
             fk_child_column_id: column.fk_child_column_id,
             fk_parent_column_id: column.fk_parent_column_id,
 
+            fk_target_view_id: column.fk_target_view_id,
             fk_mm_model_id: column.fk_mm_model_id,
             fk_mm_child_column_id: column.fk_mm_child_column_id,
             fk_mm_parent_column_id: column.fk_mm_parent_column_id,
@@ -283,6 +305,7 @@ export default class Column<T = any> implements ColumnType {
       }
       case UITypes.QrCode: {
         await QrCodeColumn.insert(
+          context,
           {
             fk_column_id: colId,
             fk_qr_value_column_id: column.fk_qr_value_column_id,
@@ -293,6 +316,7 @@ export default class Column<T = any> implements ColumnType {
       }
       case UITypes.Barcode: {
         await BarcodeColumn.insert(
+          context,
           {
             fk_column_id: colId,
             fk_barcode_value_column_id: column.fk_barcode_value_column_id,
@@ -302,8 +326,25 @@ export default class Column<T = any> implements ColumnType {
         );
         break;
       }
+      case UITypes.Button: {
+        await ButtonColumn.insert(context, {
+          fk_column_id: colId,
+          formula: column?.formula,
+          formula_raw: column?.formula_raw,
+          parsed_tree: column?.parsed_tree,
+          icon: column?.icon,
+          type: column.type,
+          theme: column.theme,
+          color: column.color,
+          fk_webhook_id: column?.fk_webhook_id,
+          label: column.label,
+        });
+
+        break;
+      }
       case UITypes.Formula: {
         await FormulaColumn.insert(
+          context,
           {
             fk_column_id: colId,
             formula: column.formula,
@@ -326,7 +367,7 @@ export default class Column<T = any> implements ColumnType {
               color: selectColors[i % selectColors.length],
             });
           }
-          await SelectOption.bulkInsert(bulkOptions, ncMeta);
+          await SelectOption.bulkInsert(context, bulkOptions, ncMeta);
         } else {
           const bulkOptions = [];
           for (const [i, option] of column.colOptions.options.entries() ||
@@ -343,7 +384,7 @@ export default class Column<T = any> implements ColumnType {
             });
           }
 
-          await SelectOption.bulkInsert(bulkOptions, ncMeta);
+          await SelectOption.bulkInsert(context, bulkOptions, ncMeta);
         }
         break;
       }
@@ -359,7 +400,7 @@ export default class Column<T = any> implements ColumnType {
               color: selectColors[i % selectColors.length],
             });
           }
-          await SelectOption.bulkInsert(bulkOptions, ncMeta);
+          await SelectOption.bulkInsert(context, bulkOptions, ncMeta);
         } else {
           const bulkOptions = [];
           for (const [i, option] of column.colOptions.options.entries() ||
@@ -375,7 +416,7 @@ export default class Column<T = any> implements ColumnType {
               order: i + 1,
             });
           }
-          await SelectOption.bulkInsert(bulkOptions, ncMeta);
+          await SelectOption.bulkInsert(context, bulkOptions, ncMeta);
         }
         break;
       }
@@ -383,8 +424,8 @@ export default class Column<T = any> implements ColumnType {
       /*  default:
         {
           await ncMeta.metaInsert2(
-            model.base_id,
-            model.db_alias,
+            context.workspace_id,
+            context.base_id,
             'nc_col_props_v2',
             {
               column_id: model.column_id,
@@ -418,8 +459,8 @@ export default class Column<T = any> implements ColumnType {
           ) {
             for (const option of model.dtxp.split(','))
               await ncMeta.metaInsert2(
-                model.base_id,
-                model.db_alias,
+                context.workspace_id,
+                context.base_id,
                 MetaTable.COL_SELECT_OPTIONS',
                 {
                   column_id: colId,
@@ -432,36 +473,42 @@ export default class Column<T = any> implements ColumnType {
     }
   }
 
-  public async getColOptions<U = T>(ncMeta = Noco.ncMeta): Promise<U> {
+  public async getColOptions<U = T>(
+    context: NcContext,
+    ncMeta = Noco.ncMeta,
+  ): Promise<U> {
     let res: any;
 
     switch (this.uidt) {
       case UITypes.Lookup:
-        res = await LookupColumn.read(this.id, ncMeta);
+        res = await LookupColumn.read(context, this.id, ncMeta);
         break;
       case UITypes.Rollup:
-        res = await RollupColumn.read(this.id, ncMeta);
+        res = await RollupColumn.read(context, this.id, ncMeta);
         break;
       case UITypes.LinkToAnotherRecord:
-        res = await LinkToAnotherRecordColumn.read(this.id, ncMeta);
+        res = await LinkToAnotherRecordColumn.read(context, this.id, ncMeta);
         break;
       case UITypes.Links:
-        res = await LinksColumn.read(this.id, ncMeta);
+        res = await LinksColumn.read(context, this.id, ncMeta);
         break;
       case UITypes.MultiSelect:
-        res = await SelectOption.read(this.id, ncMeta);
+        res = await SelectOption.read(context, this.id, ncMeta);
         break;
       case UITypes.SingleSelect:
-        res = await SelectOption.read(this.id, ncMeta);
+        res = await SelectOption.read(context, this.id, ncMeta);
         break;
       case UITypes.Formula:
-        res = await FormulaColumn.read(this.id, ncMeta);
+        res = await FormulaColumn.read(context, this.id, ncMeta);
+        break;
+      case UITypes.Button:
+        res = await ButtonColumn.read(context, this.id, ncMeta);
         break;
       case UITypes.QrCode:
-        res = await QrCodeColumn.read(this.id, ncMeta);
+        res = await QrCodeColumn.read(context, this.id, ncMeta);
         break;
       case UITypes.Barcode:
-        res = await BarcodeColumn.read(this.id, ncMeta);
+        res = await BarcodeColumn.read(context, this.id, ncMeta);
         break;
       // default:
       //   res = await DbColumn.read(this.id);
@@ -471,19 +518,28 @@ export default class Column<T = any> implements ColumnType {
     return res;
   }
 
-  async loadModel(force = false): Promise<Model> {
+  async loadModel(
+    context: NcContext,
+    force = false,
+    ncMeta = Noco.ncMeta,
+  ): Promise<Model> {
     if (!this.model || force) {
-      this.model = await Model.getByIdOrName({
-        // source_id: this.base_id,
-        // db_alias: this.db_alias,
-        id: this.fk_model_id,
-      });
+      this.model = await Model.getByIdOrName(
+        context,
+        {
+          // source_id: this.base_id,
+          // db_alias: this.db_alias,
+          id: this.fk_model_id,
+        },
+        ncMeta,
+      );
     }
 
     return this.model;
   }
 
   public static async list(
+    context: NcContext,
     {
       fk_model_id,
       fk_default_view_id,
@@ -500,7 +556,7 @@ export default class Column<T = any> implements ColumnType {
     const { isNoneList } = cachedList;
 
     const defaultViewColumns = fk_default_view_id
-      ? await View.getColumns(fk_default_view_id)
+      ? await View.getColumns(context, fk_default_view_id, ncMeta)
       : [];
 
     const defaultViewColumnOrderMap = defaultViewColumns.reduce((acc, col) => {
@@ -509,14 +565,19 @@ export default class Column<T = any> implements ColumnType {
     }, {} as Record<string, number>);
 
     if (!isNoneList && !columnsList.length) {
-      columnsList = await ncMeta.metaList2(null, null, MetaTable.COLUMNS, {
-        condition: {
-          fk_model_id,
+      columnsList = await ncMeta.metaList2(
+        context.workspace_id,
+        context.base_id,
+        MetaTable.COLUMNS,
+        {
+          condition: {
+            fk_model_id,
+          },
+          orderBy: {
+            order: 'asc',
+          },
         },
-        orderBy: {
-          order: 'asc',
-        },
-      });
+      );
 
       columnsList.forEach((column) => {
         column.meta = parseMetaProp(column);
@@ -541,7 +602,7 @@ export default class Column<T = any> implements ColumnType {
         }
 
         const column = new Column(m);
-        await column.getColOptions(ncMeta);
+        await column.getColOptions(context, ncMeta);
         return column;
       }),
     );
@@ -583,10 +644,9 @@ export default class Column<T = any> implements ColumnType {
     return columns.map(c => new Column(c));*/
   }
 
-  public static async get(
+  public static async get<T = any>(
+    context: NcContext,
     {
-      source_id,
-      db_alias,
       colId,
     }: {
       source_id?: string;
@@ -594,7 +654,7 @@ export default class Column<T = any> implements ColumnType {
       colId: string;
     },
     ncMeta = Noco.ncMeta,
-  ): Promise<Column> {
+  ): Promise<Column<T>> {
     let colData =
       colId &&
       (await NocoCache.get(
@@ -603,8 +663,8 @@ export default class Column<T = any> implements ColumnType {
       ));
     if (!colData) {
       colData = await ncMeta.metaGet2(
-        source_id,
-        db_alias,
+        context.workspace_id,
+        context.base_id,
         MetaTable.COLUMNS,
         colId,
       );
@@ -619,7 +679,13 @@ export default class Column<T = any> implements ColumnType {
     }
     if (colData) {
       const column = new Column(colData);
-      await column.getColOptions(ncMeta);
+      await column.getColOptions(
+        {
+          workspace_id: column.fk_workspace_id,
+          base_id: column.base_id,
+        },
+        ncMeta,
+      );
       return column;
     }
     return null;
@@ -627,8 +693,8 @@ export default class Column<T = any> implements ColumnType {
 
   id: string;
 
-  static async delete(id, ncMeta = Noco.ncMeta) {
-    const col = await this.get({ colId: id }, ncMeta);
+  static async delete(context: NcContext, id, ncMeta = Noco.ncMeta) {
+    const col = await this.get(context, { colId: id }, ncMeta);
 
     // if column is not found, return
     if (!col) {
@@ -640,29 +706,29 @@ export default class Column<T = any> implements ColumnType {
     // get qr code columns and delete
     {
       const qrCodeCols = await ncMeta.metaList2(
-        null,
-        null,
+        context.workspace_id,
+        context.base_id,
         MetaTable.COL_QRCODE,
         {
           condition: { fk_qr_value_column_id: id },
         },
       );
       for (const qrCodeCol of qrCodeCols) {
-        await Column.delete(qrCodeCol.fk_column_id, ncMeta);
+        await Column.delete(context, qrCodeCol.fk_column_id, ncMeta);
       }
     }
 
     {
       const barcodeCols = await ncMeta.metaList2(
-        null,
-        null,
+        context.workspace_id,
+        context.base_id,
         MetaTable.COL_BARCODE,
         {
           condition: { fk_barcode_value_column_id: id },
         },
       );
       for (const barcodeCol of barcodeCols) {
-        await Column.delete(barcodeCol.fk_column_id, ncMeta);
+        await Column.delete(context, barcodeCol.fk_column_id, ncMeta);
       }
     }
 
@@ -672,12 +738,17 @@ export default class Column<T = any> implements ColumnType {
       let { list: lookups } = cachedList;
       const { isNoneList } = cachedList;
       if (!isNoneList && !lookups.length) {
-        lookups = await ncMeta.metaList2(null, null, MetaTable.COL_LOOKUP, {
-          condition: { fk_lookup_column_id: id },
-        });
+        lookups = await ncMeta.metaList2(
+          context.workspace_id,
+          context.base_id,
+          MetaTable.COL_LOOKUP,
+          {
+            condition: { fk_lookup_column_id: id },
+          },
+        );
       }
       for (const lookup of lookups) {
-        await Column.delete(lookup.fk_column_id, ncMeta);
+        await Column.delete(context, lookup.fk_column_id, ncMeta);
       }
     }
 
@@ -687,12 +758,62 @@ export default class Column<T = any> implements ColumnType {
       let { list: rollups } = cachedList;
       const { isNoneList } = cachedList;
       if (!isNoneList && !rollups.length) {
-        rollups = await ncMeta.metaList2(null, null, MetaTable.COL_ROLLUP, {
-          condition: { fk_rollup_column_id: id },
-        });
+        rollups = await ncMeta.metaList2(
+          context.workspace_id,
+          context.base_id,
+          MetaTable.COL_ROLLUP,
+          {
+            condition: { fk_rollup_column_id: id },
+          },
+        );
       }
       for (const rollup of rollups) {
-        await Column.delete(rollup.fk_column_id, ncMeta);
+        await Column.delete(context, rollup.fk_column_id, ncMeta);
+      }
+    }
+
+    {
+      const cachedList = await NocoCache.getList(CacheScope.COLUMN, [
+        col.fk_model_id,
+      ]);
+      let { list: buttonColumns } = cachedList;
+      const { isNoneList } = cachedList;
+      if (!isNoneList && !buttonColumns.length) {
+        buttonColumns = await ncMeta.metaList2(
+          context.workspace_id,
+          context.base_id,
+          MetaTable.COLUMNS,
+          {
+            condition: {
+              fk_model_id: col.fk_model_id,
+              uidt: UITypes.Button,
+            },
+          },
+        );
+      }
+      buttonColumns = buttonColumns.filter((c) => c.uidt === UITypes.Button);
+
+      for (const buttonCol of buttonColumns) {
+        const button = await new Column(buttonCol).getColOptions<ButtonColumn>(
+          context,
+          ncMeta,
+        );
+
+        if (button.type === 'url') {
+          if (
+            addFormulaErrorIfMissingColumn({
+              formula: button,
+              columnId: id,
+              title: col?.title,
+            })
+          )
+            await ButtonColumn.update(
+              context,
+              buttonCol.id,
+              button as ButtonColumn & { parsed_tree?: any },
+              ncMeta,
+            );
+        }
       }
     }
 
@@ -703,19 +824,24 @@ export default class Column<T = any> implements ColumnType {
       let { list: formulaColumns } = cachedList;
       const { isNoneList } = cachedList;
       if (!isNoneList && !formulaColumns.length) {
-        formulaColumns = await ncMeta.metaList2(null, null, MetaTable.COLUMNS, {
-          condition: {
-            fk_model_id: col.fk_model_id,
-            uidt: UITypes.Formula,
+        formulaColumns = await ncMeta.metaList2(
+          context.workspace_id,
+          context.base_id,
+          MetaTable.COLUMNS,
+          {
+            condition: {
+              fk_model_id: col.fk_model_id,
+              uidt: UITypes.Formula,
+            },
           },
-        });
+        );
       }
       formulaColumns = formulaColumns.filter((c) => c.uidt === UITypes.Formula);
 
       for (const formulaCol of formulaColumns) {
         const formula = await new Column(
           formulaCol,
-        ).getColOptions<FormulaColumn>();
+        ).getColOptions<FormulaColumn>(context, ncMeta);
         if (
           addFormulaErrorIfMissingColumn({
             formula,
@@ -724,6 +850,7 @@ export default class Column<T = any> implements ColumnType {
           })
         )
           await FormulaColumn.update(
+            context,
             formulaCol.id,
             formula as FormulaColumn & { parsed_tree?: any },
             ncMeta,
@@ -739,12 +866,17 @@ export default class Column<T = any> implements ColumnType {
         let { list: lookups } = cachedList;
         const { isNoneList } = cachedList;
         if (!isNoneList && !lookups.length) {
-          lookups = await ncMeta.metaList2(null, null, MetaTable.COL_LOOKUP, {
-            condition: { fk_relation_column_id: id },
-          });
+          lookups = await ncMeta.metaList2(
+            context.workspace_id,
+            context.base_id,
+            MetaTable.COL_LOOKUP,
+            {
+              condition: { fk_relation_column_id: id },
+            },
+          );
         }
         for (const lookup of lookups) {
-          await Column.delete(lookup.fk_column_id, ncMeta);
+          await Column.delete(context, lookup.fk_column_id, ncMeta);
         }
       }
 
@@ -754,12 +886,17 @@ export default class Column<T = any> implements ColumnType {
         let { list: rollups } = cachedList;
         const { isNoneList } = cachedList;
         if (!isNoneList && !rollups.length) {
-          rollups = await ncMeta.metaList2(null, null, MetaTable.COL_ROLLUP, {
-            condition: { fk_relation_column_id: id },
-          });
+          rollups = await ncMeta.metaList2(
+            context.workspace_id,
+            context.base_id,
+            MetaTable.COL_ROLLUP,
+            {
+              condition: { fk_relation_column_id: id },
+            },
+          );
         }
         for (const rollup of rollups) {
-          await Column.delete(rollup.fk_column_id, ncMeta);
+          await Column.delete(context, rollup.fk_column_id, ncMeta);
         }
       }
     }
@@ -770,14 +907,19 @@ export default class Column<T = any> implements ColumnType {
       let { list: sorts } = cachedList;
       const { isNoneList } = cachedList;
       if (!isNoneList && !sorts.length) {
-        sorts = await ncMeta.metaList2(null, null, MetaTable.SORT, {
-          condition: {
-            fk_column_id: id,
+        sorts = await ncMeta.metaList2(
+          context.workspace_id,
+          context.base_id,
+          MetaTable.SORT,
+          {
+            condition: {
+              fk_column_id: id,
+            },
           },
-        });
+        );
       }
       for (const sort of sorts) {
-        await Sort.delete(sort.id, ncMeta);
+        await Sort.delete(context, sort.id, ncMeta);
       }
     }
     // delete filters
@@ -786,17 +928,24 @@ export default class Column<T = any> implements ColumnType {
       let { list: filters } = cachedList;
       const { isNoneList } = cachedList;
       if (!isNoneList && !filters.length) {
-        filters = await ncMeta.metaList2(null, null, MetaTable.FILTER_EXP, {
-          condition: {
-            fk_column_id: id,
+        filters = await ncMeta.metaList2(
+          context.workspace_id,
+          context.base_id,
+          MetaTable.FILTER_EXP,
+          {
+            condition: {
+              fk_column_id: id,
+            },
           },
-        });
+        );
       }
       for (const filter of filters) {
         if (filter.fk_parent_id) continue;
-        await Filter.delete(filter.id, ncMeta);
+        await Filter.delete(context, filter.id, ncMeta);
       }
     }
+    // Set Gallery & Kanban view `fk_cover_image_col_id` value to null
+    await Column.deleteCoverImageColumnId(context, id, ncMeta);
 
     // Delete from view columns
     let colOptionTableName = null;
@@ -824,6 +973,10 @@ export default class Column<T = any> implements ColumnType {
         colOptionTableName = MetaTable.COL_FORMULA;
         cacheScopeName = CacheScope.COL_FORMULA;
         break;
+      case UITypes.Button:
+        colOptionTableName = MetaTable.COL_BUTTON;
+        cacheScopeName = CacheScope.COL_BUTTON;
+        break;
       case UITypes.QrCode:
         colOptionTableName = MetaTable.COL_QRCODE;
         cacheScopeName = CacheScope.COL_QRCODE;
@@ -835,9 +988,14 @@ export default class Column<T = any> implements ColumnType {
     }
 
     if (colOptionTableName && cacheScopeName) {
-      await ncMeta.metaDelete(null, null, colOptionTableName, {
-        fk_column_id: col.id,
-      });
+      await ncMeta.metaDelete(
+        context.workspace_id,
+        context.base_id,
+        colOptionTableName,
+        {
+          fk_column_id: col.id,
+        },
+      );
       await NocoCache.deepDel(
         `${cacheScopeName}:${col.id}`,
         CacheDelDirection.CHILD_TO_PARENT,
@@ -850,21 +1008,30 @@ export default class Column<T = any> implements ColumnType {
       MetaTable.FORM_VIEW_COLUMNS,
       MetaTable.KANBAN_VIEW_COLUMNS,
       MetaTable.GALLERY_VIEW_COLUMNS,
+      MetaTable.CALENDAR_VIEW_COLUMNS,
     ];
     const viewColumnCacheScope = [
       CacheScope.GRID_VIEW_COLUMN,
       CacheScope.FORM_VIEW_COLUMN,
       CacheScope.KANBAN_VIEW_COLUMN,
       CacheScope.GALLERY_VIEW_COLUMN,
+      CacheScope.CALENDAR_VIEW_COLUMN,
     ];
 
     for (let i = 0; i < viewColumnTables.length; i++) {
       const table = viewColumnTables[i];
       const cacheScope = viewColumnCacheScope[i];
-      const viewColumns = await ncMeta.metaList2(null, null, table, {
-        condition: { fk_column_id: id },
+      const viewColumns = await ncMeta.metaList2(
+        context.workspace_id,
+        context.base_id,
+        table,
+        {
+          condition: { fk_column_id: id },
+        },
+      );
+      await ncMeta.metaDelete(context.workspace_id, context.base_id, table, {
+        fk_column_id: id,
       });
-      await ncMeta.metaDelete(null, null, table, { fk_column_id: id });
       for (const viewColumn of viewColumns) {
         await NocoCache.deepDel(
           `${cacheScope}:${viewColumn.id}`,
@@ -875,8 +1042,8 @@ export default class Column<T = any> implements ColumnType {
 
     // Get LTAR columns in which current column is referenced as foreign key
     const ltarColumns = await ncMeta.metaList2(
-      null,
-      null,
+      context.workspace_id,
+      context.base_id,
       MetaTable.COL_RELATIONS,
       {
         xcCondition: {
@@ -892,11 +1059,19 @@ export default class Column<T = any> implements ColumnType {
 
     // Delete LTAR columns in which current column is referenced as foreign key
     for (const ltarColumn of ltarColumns) {
-      await Column.delete(ltarColumn.fk_column_id, ncMeta);
+      await Column.delete(context, ltarColumn.fk_column_id, ncMeta);
     }
 
+    // Delete FileReference
+    await FileReference.bulkDelete(context, { fk_column_id: col.id }, ncMeta);
+
     // Columns
-    await ncMeta.metaDelete(null, null, MetaTable.COLUMNS, col.id);
+    await ncMeta.metaDelete(
+      context.workspace_id,
+      context.base_id,
+      MetaTable.COLUMNS,
+      col.id,
+    );
     await NocoCache.deepDel(
       `${CacheScope.COLUMN}:${col.id}`,
       CacheDelDirection.CHILD_TO_PARENT,
@@ -904,25 +1079,31 @@ export default class Column<T = any> implements ColumnType {
 
     // on column delete, delete any optimised single query cache
     {
-      await View.clearSingleQueryCache(col.fk_model_id, null, ncMeta);
+      await View.clearSingleQueryCache(context, col.fk_model_id, null, ncMeta);
     }
   }
 
   static async update(
+    context: NcContext,
     colId: string,
     column: Partial<Column> & Partial<Pick<ColumnReqType, 'column_order'>>,
     ncMeta = Noco.ncMeta,
     skipFormulaInvalidate = false,
   ) {
-    const oldCol = await Column.get({ colId }, ncMeta);
+    const oldCol = await Column.get(context, { colId }, ncMeta);
 
     switch (oldCol.uidt) {
       case UITypes.Lookup: {
         // LookupColumn.insert()
 
-        await ncMeta.metaDelete(null, null, MetaTable.COL_LOOKUP, {
-          fk_column_id: colId,
-        });
+        await ncMeta.metaDelete(
+          context.workspace_id,
+          context.base_id,
+          MetaTable.COL_LOOKUP,
+          {
+            fk_column_id: colId,
+          },
+        );
         await NocoCache.deepDel(
           `${CacheScope.COL_LOOKUP}:${colId}`,
           CacheDelDirection.CHILD_TO_PARENT,
@@ -930,9 +1111,14 @@ export default class Column<T = any> implements ColumnType {
         break;
       }
       case UITypes.Rollup: {
-        await ncMeta.metaDelete(null, null, MetaTable.COL_ROLLUP, {
-          fk_column_id: colId,
-        });
+        await ncMeta.metaDelete(
+          context.workspace_id,
+          context.base_id,
+          MetaTable.COL_ROLLUP,
+          {
+            fk_column_id: colId,
+          },
+        );
         await NocoCache.deepDel(
           `${CacheScope.COL_ROLLUP}:${colId}`,
           CacheDelDirection.CHILD_TO_PARENT,
@@ -941,9 +1127,14 @@ export default class Column<T = any> implements ColumnType {
       }
 
       case UITypes.LinkToAnotherRecord: {
-        await ncMeta.metaDelete(null, null, MetaTable.COL_RELATIONS, {
-          fk_column_id: colId,
-        });
+        await ncMeta.metaDelete(
+          context.workspace_id,
+          context.base_id,
+          MetaTable.COL_RELATIONS,
+          {
+            fk_column_id: colId,
+          },
+        );
         await NocoCache.deepDel(
           `${CacheScope.COL_RELATION}:${colId}`,
           CacheDelDirection.CHILD_TO_PARENT,
@@ -951,9 +1142,14 @@ export default class Column<T = any> implements ColumnType {
         break;
       }
       case UITypes.Formula: {
-        await ncMeta.metaDelete(null, null, MetaTable.COL_FORMULA, {
-          fk_column_id: colId,
-        });
+        await ncMeta.metaDelete(
+          context.workspace_id,
+          context.base_id,
+          MetaTable.COL_FORMULA,
+          {
+            fk_column_id: colId,
+          },
+        );
 
         await NocoCache.deepDel(
           `${CacheScope.COL_FORMULA}:${colId}`,
@@ -961,10 +1157,33 @@ export default class Column<T = any> implements ColumnType {
         );
         break;
       }
+
+      case UITypes.Button: {
+        await ncMeta.metaDelete(
+          context.workspace_id,
+          context.base_id,
+          MetaTable.COL_BUTTON,
+          {
+            fk_column_id: colId,
+          },
+        );
+
+        await NocoCache.deepDel(
+          `${CacheScope.COL_BUTTON}:${colId}`,
+          CacheDelDirection.CHILD_TO_PARENT,
+        );
+        break;
+      }
+
       case UITypes.QrCode: {
-        await ncMeta.metaDelete(null, null, MetaTable.COL_QRCODE, {
-          fk_column_id: colId,
-        });
+        await ncMeta.metaDelete(
+          context.workspace_id,
+          context.base_id,
+          MetaTable.COL_QRCODE,
+          {
+            fk_column_id: colId,
+          },
+        );
 
         await NocoCache.deepDel(
           `${CacheScope.COL_QRCODE}:${colId}`,
@@ -974,9 +1193,14 @@ export default class Column<T = any> implements ColumnType {
       }
 
       case UITypes.Barcode: {
-        await ncMeta.metaDelete(null, null, MetaTable.COL_BARCODE, {
-          fk_column_id: colId,
-        });
+        await ncMeta.metaDelete(
+          context.workspace_id,
+          context.base_id,
+          MetaTable.COL_BARCODE,
+          {
+            fk_column_id: colId,
+          },
+        );
 
         await NocoCache.deepDel(
           `${CacheScope.COL_BARCODE}:${colId}`,
@@ -987,9 +1211,14 @@ export default class Column<T = any> implements ColumnType {
 
       case UITypes.MultiSelect:
       case UITypes.SingleSelect: {
-        await ncMeta.metaDelete(null, null, MetaTable.COL_SELECT_OPTIONS, {
-          fk_column_id: colId,
-        });
+        await ncMeta.metaDelete(
+          context.workspace_id,
+          context.base_id,
+          MetaTable.COL_SELECT_OPTIONS,
+          {
+            fk_column_id: colId,
+          },
+        );
 
         await NocoCache.deepDel(
           `${CacheScope.COL_SELECT_OPTION}:${colId}:list`,
@@ -1002,6 +1231,7 @@ export default class Column<T = any> implements ColumnType {
     const updateObj = extractProps(column, [
       'column_name',
       'title',
+      'description',
       'uidt',
       'dt',
       'np',
@@ -1036,26 +1266,26 @@ export default class Column<T = any> implements ColumnType {
     // get qr code columns and delete if target type is not supported by QR code column type
     if (!AllowedColumnTypesForQrAndBarcodes.includes(updateObj.uidt)) {
       const qrCodeCols = await ncMeta.metaList2(
-        null,
-        null,
+        context.workspace_id,
+        context.base_id,
         MetaTable.COL_QRCODE,
         {
           condition: { fk_qr_value_column_id: colId },
         },
       );
       const barcodeCols = await ncMeta.metaList2(
-        null,
-        null,
+        context.workspace_id,
+        context.base_id,
         MetaTable.COL_BARCODE,
         {
           condition: { fk_barcode_value_column_id: colId },
         },
       );
       for (const qrCodeCol of qrCodeCols) {
-        await Column.delete(qrCodeCol.fk_column_id, ncMeta);
+        await Column.delete(context, qrCodeCol.fk_column_id, ncMeta);
       }
       for (const barcodeCol of barcodeCols) {
-        await Column.delete(barcodeCol.fk_column_id, ncMeta);
+        await Column.delete(context, barcodeCol.fk_column_id, ncMeta);
       }
     }
     if (
@@ -1064,9 +1294,10 @@ export default class Column<T = any> implements ColumnType {
       column.column_order.view_id
     ) {
       const viewColumn = (
-        await View.getColumns(column.column_order.view_id, ncMeta)
+        await View.getColumns(context, column.column_order.view_id, ncMeta)
       ).find((col) => col.fk_column_id === column.id);
       await View.updateColumn(
+        context,
         column.column_order.view_id,
         viewColumn.id,
         {
@@ -1076,10 +1307,15 @@ export default class Column<T = any> implements ColumnType {
       );
     }
 
+    if (oldCol.uidt === UITypes.Attachment && oldCol.uidt !== column.uidt) {
+      // Set Gallery & Kanban view `fk_cover_image_col_id` value to null
+      await Column.deleteCoverImageColumnId(context, column.id, ncMeta);
+    }
+
     // set meta
     await ncMeta.metaUpdate(
-      null,
-      null,
+      context.workspace_id,
+      context.base_id,
       MetaTable.COLUMNS,
       prepareForDb(updateObj),
       colId,
@@ -1090,19 +1326,21 @@ export default class Column<T = any> implements ColumnType {
       prepareForResponse(updateObj),
     );
 
-    await this.insertColOption(column, colId, ncMeta);
+    await this.insertColOption(context, column, colId, ncMeta);
 
     // on column update, delete any optimised single query cache
-    await View.clearSingleQueryCache(oldCol.fk_model_id, null, ncMeta);
+    await View.clearSingleQueryCache(context, oldCol.fk_model_id, null, ncMeta);
 
-    const updatedColumn = await Column.get({ colId }, ncMeta);
+    const updatedColumn = await Column.get(context, { colId }, ncMeta);
     if (!skipFormulaInvalidate) {
-      // invalidate formula parsed-tree in which current column is used
+      // invalidate formula/button parsed-tree in which current column is used
       // whenever a new request comes for that formula, it will be populated again
       getFormulasReferredTheColumn(
+        context,
         {
           column: updatedColumn,
           columns: await Column.list(
+            context,
             { fk_model_id: oldCol.fk_model_id },
             ncMeta,
           ),
@@ -1111,31 +1349,80 @@ export default class Column<T = any> implements ColumnType {
       )
         .then(async (formulas) => {
           for (const formula of formulas) {
-            await FormulaColumn.update(
-              formula.id,
-              {
-                parsed_tree: null,
-              },
-              ncMeta,
-            );
+            if (formula.uidt === UITypes.Formula) {
+              await FormulaColumn.update(
+                context,
+                formula.id,
+                {
+                  parsed_tree: null,
+                },
+                ncMeta,
+              );
+            } else if (formula.uidt === UITypes.Button) {
+              await ButtonColumn.update(
+                context,
+                formula.id,
+                {
+                  parsed_tree: null,
+                },
+                ncMeta,
+              );
+            }
           }
         })
-        // ignore the error and continue, if formula is no longer valid it will be captured in the next run
+        // ignore the error and continue, if formula/button is no longer valid it will be captured in the next run
         .catch((err) => {
           logger.error(err);
         });
     }
+
+    // clear any related table cache if updating a FK column
+    {
+      // Get LTAR columns in which current column is referenced as foreign key
+      const ltarColumns = await ncMeta.metaList2(
+        context.workspace_id,
+        context.base_id,
+        MetaTable.COL_RELATIONS,
+        {
+          xcCondition: {
+            _and: [
+              {
+                _or: [
+                  { fk_child_column_id: { eq: colId } },
+                  { fk_parent_column_id: { eq: colId } },
+                  { fk_mm_child_column_id: { eq: colId } },
+                  { fk_mm_parent_column_id: { eq: colId } },
+                ],
+              },
+              {
+                fk_related_model_id: { neq: oldCol.fk_model_id },
+              },
+            ],
+          },
+        },
+      );
+
+      for (const linkCol of ltarColumns) {
+        await View.clearSingleQueryCache(
+          context,
+          (linkCol.colOptions as LinksColumn).fk_related_model_id,
+          null,
+          ncMeta,
+        );
+      }
+    }
   }
 
   static async updateAlias(
+    context: NcContext,
     colId: string,
     { title }: { title: string },
     ncMeta = Noco.ncMeta,
   ) {
     // set meta
     await ncMeta.metaUpdate(
-      null, //column.base_id || column.source_id,
-      null, //column.db_alias,
+      context.workspace_id,
+      context.base_id,
       MetaTable.COLUMNS,
       {
         title,
@@ -1145,9 +1432,9 @@ export default class Column<T = any> implements ColumnType {
 
     await NocoCache.update(`${CacheScope.COLUMN}:${colId}`, { title });
 
-    const column = await Column.get({ colId }, ncMeta);
+    const column = await Column.get(context, { colId }, ncMeta);
 
-    await View.clearSingleQueryCache(column.fk_model_id, null, ncMeta);
+    await View.clearSingleQueryCache(context, column.fk_model_id, null, ncMeta);
   }
 
   public getValidators(): any {
@@ -1158,11 +1445,12 @@ export default class Column<T = any> implements ColumnType {
     return null;
   }
 
-  async delete(ncMeta = Noco.ncMeta) {
-    return await Column.delete(this.id, ncMeta);
+  async delete(context: NcContext, ncMeta = Noco.ncMeta) {
+    return await Column.delete(context, this.id, ncMeta);
   }
 
   static async checkTitleAvailable(
+    context: NcContext,
     {
       column_name,
       fk_model_id,
@@ -1171,8 +1459,8 @@ export default class Column<T = any> implements ColumnType {
     ncMeta = Noco.ncMeta,
   ) {
     return !(await ncMeta.metaGet2(
-      null,
-      null,
+      context.workspace_id,
+      context.base_id,
       MetaTable.COLUMNS,
       {
         column_name,
@@ -1184,12 +1472,13 @@ export default class Column<T = any> implements ColumnType {
   }
 
   static async checkAliasAvailable(
+    context: NcContext,
     { title, fk_model_id, exclude_id }: { title; fk_model_id; exclude_id? },
     ncMeta = Noco.ncMeta,
   ) {
     return !(await ncMeta.metaGet2(
-      null,
-      null,
+      context.workspace_id,
+      context.base_id,
       MetaTable.COLUMNS,
       {
         title,
@@ -1201,14 +1490,15 @@ export default class Column<T = any> implements ColumnType {
   }
 
   static async markAsSystemField(
+    context: NcContext,
     colId: string,
     system = true,
     ncMeta = Noco.ncMeta,
   ) {
     // update system field in meta db
     await ncMeta.metaUpdate(
-      null,
-      null,
+      context.workspace_id,
+      context.base_id,
       MetaTable.COLUMNS,
       {
         system,
@@ -1233,13 +1523,14 @@ export default class Column<T = any> implements ColumnType {
   }
 
   static async updateMeta(
+    context: NcContext,
     { colId, meta }: { colId: string; meta: any },
     ncMeta = Noco.ncMeta,
   ) {
     // set meta
     await ncMeta.metaUpdate(
-      null,
-      null,
+      context.workspace_id,
+      context.base_id,
       MetaTable.COLUMNS,
       prepareForDb({ meta }),
       colId,
@@ -1251,7 +1542,47 @@ export default class Column<T = any> implements ColumnType {
     );
   }
 
+  static async updateValidation(
+    context: NcContext,
+    { colId, validate }: { colId: string; validate: any },
+    ncMeta = Noco.ncMeta,
+  ) {
+    // set meta
+    await ncMeta.metaUpdate(
+      context.workspace_id,
+      context.base_id,
+      MetaTable.COLUMNS,
+      prepareForDb({ validate }, 'validate'),
+      colId,
+    );
+
+    await NocoCache.update(`${CacheScope.COLUMN}:${colId}`, { validate });
+  }
+
+  static async updateTargetView(
+    context: NcContext,
+    { colId, fk_target_view_id }: { colId: string; fk_target_view_id: string },
+    ncMeta = Noco.ncMeta,
+  ) {
+    await ncMeta.metaUpdate(
+      context.workspace_id,
+      context.base_id,
+      MetaTable.COL_RELATIONS,
+      {
+        fk_target_view_id,
+      },
+      {
+        fk_column_id: colId,
+      },
+    );
+
+    await NocoCache.update(`${CacheScope.COL_RELATION}:${colId}`, {
+      fk_target_view_id,
+    });
+  }
+
   static async bulkInsert(
+    context: NcContext,
     param: {
       columns: Column[];
       fk_model_id: any;
@@ -1279,6 +1610,7 @@ export default class Column<T = any> implements ColumnType {
         'id',
         'fk_model_id',
         'column_name',
+        'description',
         'title',
         'uidt',
         'dt',
@@ -1321,34 +1653,37 @@ export default class Column<T = any> implements ColumnType {
       columns.push(colWithId);
     }
 
+    if (columns.length === 0) return [];
+
     // bulk insert columns
     await ncMeta.bulkMetaInsert(
-      null,
-      null,
+      context.workspace_id,
+      context.base_id,
       MetaTable.COLUMNS,
       extractedColumnMetas,
       true,
     );
 
-    await Column.bulkInsertColOption(columns, ncMeta);
+    await Column.bulkInsertColOption(context, columns, ncMeta);
 
     return columns;
   }
 
   private static async bulkInsertColOption<T>(
+    context: NcContext,
     columns: (Partial<T> & { source_id?: string; [p: string]: any })[],
     ncMeta = Noco.ncMeta,
   ) {
     const insertGroups = new Map<UITypes, Record<string, any>[]>();
 
     for (const column of columns) {
-      let insertArr = insertGroups.get(
+      const groupKey =
         column.uidt === UITypes.MultiSelect
           ? UITypes.SingleSelect
-          : column.uidt,
-      );
+          : column.uidt;
+      let insertArr = insertGroups.get(groupKey);
       if (!insertArr) {
-        insertGroups.set(column.uidt, (insertArr = []));
+        insertGroups.set(groupKey, (insertArr = []));
       }
       switch (column.uidt || column.ui_data_type) {
         case UITypes.Lookup:
@@ -1485,8 +1820,8 @@ export default class Column<T = any> implements ColumnType {
         case UITypes.SingleSelect:
         case UITypes.MultiSelect:
           await ncMeta.bulkMetaInsert(
-            null,
-            null,
+            context.workspace_id,
+            context.base_id,
             MetaTable.COL_SELECT_OPTIONS,
             insertGroups.get(group),
           );
@@ -1494,8 +1829,8 @@ export default class Column<T = any> implements ColumnType {
 
         case UITypes.Lookup:
           await ncMeta.bulkMetaInsert(
-            null,
-            null,
+            context.workspace_id,
+            context.base_id,
             MetaTable.COL_LOOKUP,
             insertGroups.get(group),
           );
@@ -1503,8 +1838,8 @@ export default class Column<T = any> implements ColumnType {
 
         case UITypes.Rollup:
           await ncMeta.bulkMetaInsert(
-            null,
-            null,
+            context.workspace_id,
+            context.base_id,
             MetaTable.COL_ROLLUP,
             insertGroups.get(group),
           );
@@ -1512,37 +1847,97 @@ export default class Column<T = any> implements ColumnType {
         case UITypes.Links:
         case UITypes.LinkToAnotherRecord:
           await ncMeta.bulkMetaInsert(
-            null,
-            null,
+            context.workspace_id,
+            context.base_id,
             MetaTable.COL_RELATIONS,
             insertGroups.get(group),
           );
           break;
         case UITypes.QrCode:
           await ncMeta.bulkMetaInsert(
-            null,
-            null,
+            context.workspace_id,
+            context.base_id,
             MetaTable.COL_QRCODE,
             insertGroups.get(group),
           );
           break;
         case UITypes.Barcode:
           await ncMeta.bulkMetaInsert(
-            null,
-            null,
+            context.workspace_id,
+            context.base_id,
             MetaTable.COL_BARCODE,
             insertGroups.get(group),
           );
           break;
         case UITypes.Formula:
           await ncMeta.bulkMetaInsert(
-            null,
-            null,
+            context.workspace_id,
+            context.base_id,
             MetaTable.COL_FORMULA,
             insertGroups.get(group),
           );
           break;
       }
     }
+  }
+
+  private static async deleteCoverImageColumnId(
+    context: NcContext,
+    id: string,
+    ncMeta = Noco.ncMeta,
+  ) {
+    const promises = [];
+
+    // Gallery views
+    const galleryViews: GalleryView[] = await ncMeta.metaList2(
+      context.workspace_id,
+      context.base_id,
+      MetaTable.GALLERY_VIEW,
+      {
+        condition: {
+          fk_cover_image_col_id: id,
+        },
+      },
+    );
+
+    for (const galleryView of galleryViews) {
+      promises.push(
+        GalleryView.update(
+          context,
+          galleryView.fk_view_id,
+          {
+            fk_cover_image_col_id: null,
+          },
+          ncMeta,
+        ),
+      );
+    }
+
+    // Kanban views
+    const kanbanViews: KanbanView[] = await ncMeta.metaList2(
+      context.workspace_id,
+      context.base_id,
+      MetaTable.KANBAN_VIEW,
+      {
+        condition: {
+          fk_cover_image_col_id: id,
+        },
+      },
+    );
+
+    for (const kanbanView of kanbanViews) {
+      promises.push(
+        KanbanView.update(
+          context,
+          kanbanView.fk_view_id,
+          {
+            fk_cover_image_col_id: null,
+          },
+          ncMeta,
+        ),
+      );
+    }
+
+    await Promise.all(promises);
   }
 }

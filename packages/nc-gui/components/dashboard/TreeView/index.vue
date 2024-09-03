@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Draggable from 'vuedraggable'
-import type { TableType } from 'nocodb-sdk'
+import type { TableType, ViewType } from 'nocodb-sdk'
 import ProjectWrapper from './ProjectWrapper.vue'
 
 const { isUIAllowed } = useRoles()
@@ -23,7 +23,7 @@ const baseCreateDlg = ref(false)
 
 const baseStore = useBase()
 
-const { isSharedBase } = storeToRefs(baseStore)
+const { isSharedBase, base } = storeToRefs(baseStore)
 
 const { activeTable: _activeTable } = storeToRefs(useTablesStore())
 
@@ -34,6 +34,46 @@ const contextMenuTarget = reactive<{ type?: 'base' | 'source' | 'table' | 'main'
 const setMenuContext = (type: 'base' | 'source' | 'table' | 'main' | 'layout', value?: any) => {
   contextMenuTarget.type = type
   contextMenuTarget.value = value
+}
+
+function openViewDescriptionDialog(view: ViewType) {
+  if (!view || !view.id) return
+
+  $e('c:view:description')
+
+  const isOpen = ref(true)
+
+  const { close } = useDialog(resolveComponent('DlgViewDescriptionUpdate'), {
+    'modelValue': isOpen,
+    'view': view,
+    'onUpdate:modelValue': closeDialog,
+  })
+
+  function closeDialog() {
+    isOpen.value = false
+
+    close(1000)
+  }
+}
+
+function openTableDescriptionDialog(table: TableType) {
+  if (!table || !table.id) return
+
+  $e('c:table:description')
+
+  const isOpen = ref(true)
+
+  const { close } = useDialog(resolveComponent('DlgTableDescriptionUpdate'), {
+    'modelValue': isOpen,
+    'tableMeta': table,
+    'onUpdate:modelValue': closeDialog,
+  })
+
+  function closeDialog() {
+    isOpen.value = false
+
+    close(1000)
+  }
 }
 
 function openRenameTableDialog(table: TableType, _ = false) {
@@ -100,7 +140,8 @@ const duplicateTable = async (table: TableType) => {
 
 const isCreateTableAllowed = computed(
   () =>
-    isUIAllowed('tableCreate') &&
+    base.value?.sources?.[0] &&
+    isUIAllowed('tableCreate', { source: base.value?.sources?.[0] }) &&
     route.value.name !== 'index' &&
     route.value.name !== 'index-index' &&
     route.value.name !== 'index-index-create' &&
@@ -158,6 +199,8 @@ provide(TreeViewInj, {
   setMenuContext,
   duplicateTable,
   openRenameTableDialog,
+  openViewDescriptionDialog,
+  openTableDescriptionDialog,
   contextMenuTarget,
 })
 
@@ -248,9 +291,9 @@ watch(
           ghost-class="ghost"
           @change="onMove($event)"
         >
-          <template #item="{ element: base }">
-            <div :key="base.id">
-              <ProjectWrapper :base-role="base.project_role" :base="base">
+          <template #item="{ element: baseItem }">
+            <div :key="baseItem.id">
+              <ProjectWrapper :base-role="baseItem.project_role" :base="baseItem">
                 <DashboardTreeViewProjectNode />
               </ProjectWrapper>
             </div>

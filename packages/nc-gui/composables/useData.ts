@@ -11,7 +11,7 @@ export function useData(args: {
   callbacks?: {
     changePage?: (page: number) => Promise<void>
     loadData?: () => Promise<void>
-    globalCallback?: (...args: any[]) => void
+    globalCallback?: (...args: any[]) => Promise<void>
     syncCount?: () => Promise<void>
     syncPagination?: () => Promise<void>
   }
@@ -29,6 +29,8 @@ export function useData(args: {
   const { $api } = useNuxtApp()
 
   const { isPaginationLoading } = storeToRefs(useViewsStore())
+
+  const reloadAggregate = inject(ReloadAggregateHookInj)
 
   const selectedAllRecords = computed({
     get() {
@@ -75,6 +77,8 @@ export function useData(args: {
         viewMetaValue?.id as string,
         { ...insertObj, ...(ltarState || {}) },
       )
+
+      await reloadAggregate?.trigger()
 
       if (!undo) {
         Object.assign(currentRow, {
@@ -214,6 +218,7 @@ export function useData(args: {
         //   query: { ignoreWebhook: !saved }
         // }
       )
+      await reloadAggregate?.trigger({ fields: [{ title: property }] })
 
       if (!undo) {
         addUndo({
@@ -263,6 +268,7 @@ export function useData(args: {
 
         /** update row data(to sync formula and other related columns)
          * update only formula, rollup and auto updated datetime columns data to avoid overwriting any changes made by user
+         * update attachment as well since id is required for further operations
          */
         Object.assign(
           toUpdate.row,
@@ -278,8 +284,10 @@ export function useData(args: {
                 col.uidt === UITypes.LastModifiedTime ||
                 col.uidt === UITypes.LastModifiedBy ||
                 col.uidt === UITypes.Lookup ||
+                col.uidt === UITypes.Button ||
+                col.uidt === UITypes.Attachment ||
                 col.au ||
-                (col.cdf && / on update /i.test(col.cdf)))
+                (isValidValue(col?.cdf) && / on update /i.test(col.cdf)))
             )
               acc[col.title!] = updatedRowData[col.title!]
             return acc
@@ -355,6 +363,7 @@ export function useData(args: {
     }
 
     await $api.dbTableRow.bulkUpdate(NOCO, metaValue?.base_id as string, metaValue?.id as string, updateArray)
+    await reloadAggregate?.trigger({ fields: props.map((p) => ({ title: p })) })
 
     if (!undo) {
       addUndo({
@@ -446,6 +455,8 @@ export function useData(args: {
       viewId: viewMetaValue.id,
     })
 
+    await reloadAggregate?.trigger()
+
     await callbacks?.loadData?.()
     await callbacks?.globalCallback?.()
   }
@@ -521,6 +532,8 @@ export function useData(args: {
       viewMetaValue?.id as string,
       encodeURIComponent(id),
     )
+
+    await reloadAggregate?.trigger()
 
     if (res.message) {
       message.info(
@@ -877,6 +890,7 @@ export function useData(args: {
       const bulkDeletedRowsData = await $api.dbDataTableRow.delete(metaValue?.id as string, rows.length === 1 ? rows[0] : rows, {
         viewId: viewMetaValue?.id as string,
       })
+      await reloadAggregate?.trigger()
 
       return rows.length === 1 && bulkDeletedRowsData ? [bulkDeletedRowsData] : bulkDeletedRowsData
     } catch (error: any) {

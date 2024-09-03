@@ -19,7 +19,7 @@ import { randomTokenString } from '~/helpers/stringHelpers';
 import { BaseUser, Store, SyncSource, User } from '~/models';
 
 import Noco from '~/Noco';
-import { MetaTable } from '~/utils/globals';
+import { MetaTable, RootScopes } from '~/utils/globals';
 
 @Injectable()
 export class OrgUsersService {
@@ -52,7 +52,6 @@ export class OrgUsersService {
 
     return await User.update(param.userId, {
       ...updateBody,
-      token_version: randomTokenString(),
     });
   }
 
@@ -72,7 +71,15 @@ export class OrgUsersService {
 
       // TODO: assign super admin as base owner
       for (const baseUser of baseUsers) {
-        await BaseUser.delete(baseUser.base_id, baseUser.fk_user_id, ncMeta);
+        await BaseUser.delete(
+          {
+            workspace_id: baseUser.fk_workspace_id,
+            base_id: baseUser.base_id,
+          },
+          baseUser.base_id,
+          baseUser.fk_user_id,
+          ncMeta,
+        );
       }
 
       // delete sync source entry
@@ -212,8 +219,8 @@ export class OrgUsersService {
     });
 
     const pluginData = await Noco.ncMeta.metaGet2(
-      null,
-      null,
+      RootScopes.ROOT,
+      RootScopes.ROOT,
       MetaTable.PLUGIN,
       {
         category: PluginCategory.EMAIL,

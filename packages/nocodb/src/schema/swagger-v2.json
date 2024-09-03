@@ -1338,61 +1338,6 @@
         ]
       }
     },
-    "/api/v2/meta/bases/:baseId/sources/:sourceId/sqlView": {
-      "parameters": [
-        {
-          "schema": {
-            "type": "string"
-          },
-          "name": "baseId",
-          "in": "path",
-          "required": true
-        },
-        {
-          "schema": {
-            "type": "string"
-          },
-          "name": "sourceId",
-          "in": "path",
-          "required": true
-        }
-      ],
-      "post": {
-        "summary": "Create sql view",
-        "operationId": "create-sql-view",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {}
-                }
-              }
-            }
-          }
-        },
-        "tags": ["Source"],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "view_name": {
-                    "type": "string"
-                  },
-                  "view_definition": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v2/meta/bases/{baseId}/sources/": {
       "parameters": [
         {
@@ -7356,6 +7301,108 @@
         "description": "List all shared view rows"
       }
     },
+    "/api/v2/public/shared-view/{sharedViewUuid}/bulkAggregate": {
+      "parameters": [
+        {
+          "schema": {
+            "type": "string",
+            "example": "24a6d0bb-e45d-4b1a-bfef-f492d870de9f"
+          },
+          "name": "sharedViewUuid",
+          "in": "path",
+          "required": true,
+          "description": "Shared View UUID"
+        },
+        {
+          "schema": {
+            "type": "string"
+          },
+          "in": "header",
+          "name": "xc-password",
+          "description": "Shared view password"
+        }
+      ],
+      "get": {
+        "summary": "Read Shared View Bulk Aggregated Data",
+        "operationId": "public-data-table-bulk-aggregate",
+        "description": "Read bulk aggregated data from a given table with provided filters",
+        "tags": [
+          "Public"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "where",
+            "description": "Extra filtering"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "filterArrJson",
+            "description": "Used for multiple filter queries"
+          },
+          {
+            "schema": {
+              "type": "array",
+              "description": "List of fields to be aggregated",
+              "items": {
+                "type": "object"
+              }
+            },
+            "in": "query",
+            "name": "aggregation",
+            "description": "Used for selective aggregation"
+          },
+          {
+            "in": "query",
+            "name": "aggregateFilterList",
+            "description": "List of where filters and alias",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                },
+                "examples": {
+                  "Example 1": {
+                    "value": {
+                      "alias": {
+                        "Id": 1,
+                        "Title": "90",
+                        "SingleSelect": "50"
+                      },
+                      "alias2": {
+                        "Id": 2,
+                        "Title": "50",
+                        "SingleSelect": "30"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
     "/api/v2/public/shared-view/{sharedViewUuid}/rows": {
       "parameters": [
         {
@@ -7566,6 +7613,90 @@
           }
         ],
         "description": "Create a new row for the target shared view"
+      }
+    },
+    "/api/v2/public/shared-view/{sharedViewUuid}/aggregate": {
+      "parameters": [
+        {
+          "schema": {
+            "type": "string",
+            "example": "24a6d0bb-e45d-4b1a-bfef-f492d870de9f"
+          },
+          "name": "sharedViewUuid",
+          "in": "path",
+          "required": true,
+          "description": "Shared View UUID"
+        },
+        {
+          "schema": {
+            "type": "string"
+          },
+          "in": "header",
+          "name": "xc-password",
+          "description": "Shared view password"
+        }
+      ],
+      "get": {
+        "summary": "Read Shared View Aggregated Data",
+        "operationId": "public-data-table-aggregate",
+        "description": "Read aggregated data from a given table",
+        "tags": [
+          "Public"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "where",
+            "description": "Extra filtering"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "filterArrJson",
+            "description": "Used for multiple filter queries"
+          },
+          {
+            "schema": {
+              "type": "array",
+              "description": "List of fields to be aggregated",
+              "items": {
+                "type": "object"
+              }
+            },
+            "in": "query",
+            "name": "aggregation",
+            "description": "Used for selective aggregation"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                },
+                "examples": {
+                  "Example 1": {
+                    "value": {
+                      "Id": 1,
+                      "Title": "90",
+                      "SingleSelect": "50"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
       }
     },
     "/api/v2/public/shared-view/{sharedViewUuid}/groupby": {
@@ -8226,15 +8357,15 @@
         "parameters": []
       }
     },
-    "/api/v2/meta/audits/comments": {
+    "/api/v2/meta/audits": {
       "parameters": [
         {
           "$ref": "#/components/parameters/xc-auth"
         }
       ],
       "get": {
-        "summary": "List Comments in Audit",
-        "operationId": "utils-comment-list",
+        "summary": "List Audits",
+        "operationId": "utils-audit-list",
         "responses": {
           "200": {
             "description": "OK",
@@ -8307,6 +8438,114 @@
             "$ref": "#/components/responses/BadRequest"
           }
         },
+        "description": "List all audits",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "example": "10"
+            },
+            "in": "query",
+            "name": "row_id",
+            "required": true,
+            "description": "Row ID"
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/Id",
+              "example": "md_c6csq89tl37jm5"
+            },
+            "in": "query",
+            "name": "fk_model_id",
+            "required": true,
+            "description": "Foreign Key to Model"
+          },
+          {
+            "$ref": "#/components/parameters/xc-auth"
+          }
+        ],
+        "tags": [
+          "Utils"
+        ]
+      }
+    },
+    "/api/v2/meta/comments": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/xc-auth"
+        }
+      ],
+      "get": {
+        "summary": "List Comments",
+        "operationId": "utils-comment-list",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "list": {
+                      "x-stoplight": {
+                        "id": "5zto1xohsngbu"
+                      },
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Comment",
+                        "x-stoplight": {
+                          "id": "d22zkup0c0l80"
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "list"
+                  ]
+                },
+                "examples": {
+                  "Example 1": {
+                    "value": {
+                      "list": [
+                        {
+                          "id": "adt_3sii7erfwrlegb",
+                          "source_id": null,
+                          "base_id": "p_63b4q0qengen1x",
+                          "fk_model_id": "md_5mipbdg6ketmv8",
+                          "row_id": "1",
+                          "created_by": "",
+                          "resolved_by": "",
+                          "parent_comment_id": null,
+                          "status": null,
+                          "comment": "bar",
+                          "created_at": "2023-03-13T09:39:14.225Z",
+                          "updated_at": "2023-03-13T09:39:14.225Z"
+                        },
+                        {
+                          "id": "adt_3sii7erfwrlegb",
+                          "source_id": null,
+                          "base_id": "p_63b4q0qengen1x",
+                          "fk_model_id": "md_5mipbdg6ketmv8",
+                          "row_id": "1",
+                          "created_by": "",
+                          "resolved_by": "",
+                          "parent_comment_id": null,
+                          "status": null,
+                          "comment": "bar",
+                          "created_at": "2023-03-13T09:39:14.225Z",
+                          "updated_at": "2023-03-13T09:39:14.225Z"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        },
         "description": "List all comments",
         "parameters": [
           {
@@ -8330,15 +8569,6 @@
             "description": "Foreign Key to Model"
           },
           {
-            "schema": {
-              "type": "boolean",
-              "example": true
-            },
-            "in": "query",
-            "name": "comments_only",
-            "description": "Is showing comments only?"
-          },
-          {
             "$ref": "#/components/parameters/xc-auth"
           }
         ],
@@ -8353,18 +8583,23 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Audit"
+                  "$ref": "#/components/schemas/Comment"
                 },
                 "examples": {
                   "Example 1": {
                     "value": {
-                      "user": "w@nocodb.com",
-                      "row_id": "1",
-                      "fk_model_id": "md_5mipbdg6ketmv8",
-                      "op_type": "COMMENT",
-                      "description": "qq",
+                      "id": "adt_3sii7erfwrlegb",
+                      "source_id": null,
                       "base_id": "p_63b4q0qengen1x",
-                      "id": "adt_vx58jpp0loo8qy"
+                      "fk_model_id": "md_5mipbdg6ketmv8",
+                      "row_id": "1",
+                      "created_by": "",
+                      "resolved_by": "",
+                      "parent_comment_id": null,
+                      "status": null,
+                      "comment": "bar",
+                      "created_at": "2023-03-13T09:39:14.225Z",
+                      "updated_at": "2023-03-13T09:39:14.225Z"
                     }
                   }
                 }
@@ -8384,7 +8619,7 @@
               "examples": {
                 "Example 1": {
                   "value": {
-                    "description": "This is the comment for the row",
+                    "comment": "This is the comment for the row",
                     "fk_model_id": "md_ehn5izr99m7d45",
                     "row_id": "3"
                   }
@@ -8402,17 +8637,17 @@
         ]
       }
     },
-    "/api/v2/meta/audits/{auditId}/comment": {
+    "/api/v2/meta/comment/{commentId}": {
       "parameters": [
         {
           "schema": {
             "type": "string",
             "example": "adt_zlskd6rlf3liay"
           },
-          "name": "auditId",
+          "name": "commentId",
           "in": "path",
           "required": true,
-          "description": "Audit ID"
+          "description": "Comment ID"
         },
         {
           "name": "xc-auth",
@@ -8425,7 +8660,7 @@
         }
       ],
       "patch": {
-        "summary": "Update Comment in Audit",
+        "summary": "Update Comment",
         "operationId": "utils-comment-update",
         "responses": {
           "200": {
@@ -8456,16 +8691,46 @@
               "examples": {
                 "Example 1": {
                   "value": {
-                    "description": "This is the comment for the row"
+                    "comment": "This is the comment for the row"
                   }
                 }
               }
             }
           }
         }
+      },
+      "delete": {
+        "summary": "Delete Comment",
+        "operationId": "utils-comment-delete",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "number",
+                  "example": 1
+                },
+                "examples": {
+                  "Example 1": {
+                    "value": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Utils"
+        ],
+        "description": "Delete comment",
+        "requestBody": {
+          "content": {
+          }
+        }
       }
     },
-    "/api/v2/meta/audits/comments/count": {
+    "/api/v2/meta/comments/count": {
       "parameters": [
         {
           "$ref": "#/components/parameters/xc-auth"
@@ -8545,7 +8810,103 @@
             "$ref": "#/components/parameters/xc-auth"
           }
         ],
-        "tags": ["Utils"]
+        "tags": [
+          "Utils"
+        ]
+      }
+    },
+    "/api/v2/meta/projects/audits": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/xc-auth"
+        }
+      ],
+      "get": {
+        "summary": "List Audits in Project",
+        "operationId": "project-audit-list",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "list": {
+                      "type": "array",
+                      "uniqueItems": true,
+                      "items": {
+                        "$ref": "#/components/schemas/Audit"
+                      }
+                    },
+                    "pageInfo": {
+                      "$ref": "#/components/schemas/Paginated"
+                    }
+                  },
+                  "required": [
+                    "list",
+                    "pageInfo"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        },
+        "description": "List all audit data in the given project",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "in": "query",
+            "name": "offset"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "in": "query",
+            "name": "limit"
+          },
+          {
+            "schema": {
+              "properties": {
+                "created_at": {
+                  "type": "string",
+                  "description": "Sort direction",
+                  "enum": [
+                    "asc",
+                    "desc"
+                  ],
+                  "example": "desc"
+                },
+                "user": {
+                  "type": "string",
+                  "description": "Sort direction",
+                  "enum": [
+                    "asc",
+                    "desc"
+                  ],
+                  "example": "desc"
+                }
+              },
+              "type": "object"
+            },
+            "in": "query",
+            "name": "orderBy"
+          },
+          {
+            "$ref": "#/components/parameters/xc-auth"
+          }
+        ],
+        "tags": [
+          "Utils"
+        ]
       }
     },
     "/api/v2/meta/bases/{baseId}/audits": {
@@ -8576,7 +8937,6 @@
                     "list": {
                       "type": "array",
                       "uniqueItems": true,
-                      "minItems": 1,
                       "items": {
                         "$ref": "#/components/schemas/Audit"
                       }
@@ -8607,7 +8967,7 @@
           {
             "schema": {
               "type": "integer",
-              "maximum": 1
+              "minimum": 1
             },
             "in": "query",
             "name": "limit"
@@ -8618,6 +8978,33 @@
             },
             "in": "query",
             "name": "sourceId"
+          },
+          {
+            "schema": {
+              "properties": {
+                "created_at": {
+                  "type": "string",
+                  "description": "Sort direction",
+                  "enum": [
+                    "asc",
+                    "desc"
+                  ],
+                  "example": "desc"
+                },
+                "user": {
+                  "type": "string",
+                  "description": "Sort direction",
+                  "enum": [
+                    "asc",
+                    "desc"
+                  ],
+                  "example": "desc"
+                }
+              },
+              "type": "object"
+            },
+            "in": "query",
+            "name": "orderBy"
           },
           {
             "$ref": "#/components/parameters/xc-auth"
@@ -9533,30 +9920,6 @@
         ]
       }
     },
-    "/api/v2/meta/connection/select": {
-      "parameters": [],
-      "post": {
-        "summary": "",
-        "operationId": "utils-select-query",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "tags": ["Utils"],
-        "requestBody": {
-          "content": {
-            "application/json": {}
-          }
-        },
-        "description": ""
-      }
-    },
     "/api/v2/meta/nocodb/info": {
       "parameters": [
         {
@@ -9587,6 +9950,7 @@
                       "defaultLimit": 25,
                       "ncMin": false,
                       "teleEnabled": false,
+                      "errorReportingEnabled": true,
                       "auditEnabled": true,
                       "ncSiteUrl": "http://localhost:8080",
                       "ee": false,
@@ -9629,6 +9993,9 @@
                       "type": "boolean"
                     },
                     "teleEnabled": {
+                      "type": "boolean"
+                    },
+                    "errorReportingEnabled": {
                       "type": "boolean"
                     },
                     "auditEnabled": {
@@ -9677,6 +10044,7 @@
                       "defaultLimit": 25,
                       "ncMin": false,
                       "teleEnabled": false,
+                      "errorReportingEnabled": true,
                       "auditEnabled": true,
                       "ncSiteUrl": "http://localhost:8080",
                       "ee": false,
@@ -10391,7 +10759,8 @@
             "description": "***View Identifier***. Allows you to fetch records that are currently visible within a specific view. API retrieves records in the order they are displayed if the SORT option is enabled within that view.\n\nAdditionally, if you specify a `sort` query parameter, it will take precedence over any sorting configuration defined in the view. If you specify a `where` query parameter, it will be applied over the filtering configuration defined in the view. \n\nBy default, all fields, including those that are disabled within the view, are included in the response. To explicitly specify which fields to include or exclude, you can use the `fields` query parameter to customize the output according to your requirements."
           },
           {
-            "$ref": "#/components/parameters/xc-auth"
+            "required": true,
+            "$ref": "#/components/parameters/xc-token"
           }
         ],
         "responses": {
@@ -10604,7 +10973,8 @@
         "description": "This API endpoint allows the creation of new records within a specified table. Records to be inserted are input as an array of key-value pair objects, where each key corresponds to a field name. Ensure that all the required fields are included in the payload, with exceptions for fields designated as auto-increment or those having default values. \n\nWhen dealing with 'Links' or 'Link To Another Record' field types, you should utilize the 'Create Link' API to insert relevant data. \n\nCertain read-only field types will be disregarded if included in the request. These field types include 'Look Up,' 'Roll Up,' 'Formula,' 'Auto Number,' 'Created By,' 'Updated By,' 'Created At,' 'Updated At,' 'Barcode,' and 'QR Code.'",
         "parameters": [
           {
-            "$ref": "#/components/parameters/xc-auth"
+            "required": true,
+            "$ref": "#/components/parameters/xc-token"
           }
         ]
       },
@@ -10679,7 +11049,8 @@
         "description": "This API endpoint allows updating existing records within a specified table identified by an array of Record-IDs, serving as unique identifier for the record. Records to be updated are input as an array of key-value pair objects, where each key corresponds to a field name. Ensure that all the required fields are included in the payload, with exceptions for fields designated as auto-increment or those having default values. \n\nWhen dealing with 'Links' or 'Link To Another Record' field types, you should utilize the 'Create Link' API to insert relevant data. \n\nCertain read-only field types will be disregarded if included in the request. These field types include 'Look Up,' 'Roll Up,' 'Formula,' 'Auto Number,' 'Created By,' 'Updated By,' 'Created At,' 'Updated At,' 'Barcode,' and 'QR Code.'\n\nNote that a PATCH request only updates the specified fields while leaving other fields unaffected. Currently, PUT requests are not supported by this endpoint.",
         "parameters": [
           {
-            "$ref": "#/components/parameters/xc-auth"
+            "required": true,
+            "$ref": "#/components/parameters/xc-token"
           }
         ]
       },
@@ -10746,7 +11117,8 @@
         "description": "This API endpoint allows deleting existing records within a specified table identified by an array of Record-IDs, serving as unique identifier for the record. Records to be deleted are input as an array of record-identifiers.",
         "parameters": [
           {
-            "$ref": "#/components/parameters/xc-auth"
+            "required": true,
+            "$ref": "#/components/parameters/xc-token"
           }
         ]
       }
@@ -10787,7 +11159,8 @@
             "description": "Allows you to specify the fields that you wish to include in your API response. By default, all the fields are included in the response.\n\nExample: `fields=field1,field2` will include only 'field1' and 'field2' in the API response. \n\nPlease note that it's essential not to include spaces between field names in the comma-separated list."
           },
           {
-            "$ref": "#/components/parameters/xc-auth"
+            "required": true,
+            "$ref": "#/components/parameters/xc-token"
           }
         ],
         "responses": {
@@ -10907,7 +11280,7 @@
             "description": "Enables you to define specific conditions for filtering record count in your API response. Multiple conditions can be combined using logical operators such as 'and' and 'or'. Each condition consists of three parts: a field name, a comparison operator, and a value.\n\nExample: `where=(field1,eq,value1)~and(field2,eq,value2)` will filter records where 'field1' is equal to 'value1' AND 'field2' is equal to 'value2'. \n\nYou can also use other comparison operators like 'ne' (not equal), 'gt' (greater than), 'lt' (less than), and more, to create complex filtering rules.\n\nIf `viewId` query parameter is also included, then the filters included here will be applied over the filtering configuration defined in the view. \n\nPlease remember to maintain the specified format, and do not include spaces between the different condition components"
           },
           {
-            "$ref": "#/components/parameters/xc-auth"
+            "$ref": "#/components/parameters/xc-token"
           }
         ],
         "responses": {
@@ -11020,7 +11393,8 @@
           },
 
           {
-            "$ref": "#/components/parameters/xc-auth"
+            "required": true,
+            "$ref": "#/components/parameters/xc-token"
           }
         ],
         "responses": {
@@ -11149,7 +11523,8 @@
             "description": "**Record Identifier** corresponding to the record in this table for which links are being created."
           },
           {
-            "$ref": "#/components/parameters/xc-auth"
+            "required": true,
+            "$ref": "#/components/parameters/xc-token"
           }
         ]
       },
@@ -11215,10 +11590,101 @@
             "description": "**Record Identifier** corresponding to the record in this table for which links are being removed."
           },
           {
-            "$ref": "#/components/parameters/xc-auth"
+            "required": true,
+            "$ref": "#/components/parameters/xc-token"
           }
         ]
       }
+    },
+    "/api/v2/jobs/{baseId}": {
+      "post": {
+        "summary": "Get Jobs",
+        "operationId": "jobs-list",
+        "description": "Get list of jobs for a given base for the user",
+        "tags": [
+          "Jobs"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "job": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "parameters": [
+        {
+          "schema": {
+            "$ref": "#/components/schemas/Id",
+            "example": "p124dflkcvasewh",
+            "type": "string"
+          },
+          "name": "baseId",
+          "in": "path",
+          "required": true,
+          "description": "Unique Base ID"
+        },
+        {
+          "$ref": "#/components/parameters/xc-auth"
+        }
+      ]
+    },
+    "/api/v2/export/{viewId}/{exportAs}": {
+      "post": {
+        "summary": "Trigger export as job",
+        "operationId": "export-data",
+        "description": "Trigger export as job",
+        "tags": [
+          "Export"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      },
+      "parameters": [
+        {
+          "schema": {
+            "$ref": "#/components/schemas/Id",
+            "example": "vw124dflkcvasewh",
+            "type": "string"
+          },
+          "name": "viewId",
+          "in": "path",
+          "required": true,
+          "description": "Unique View ID"
+        },
+        {
+          "schema": {
+            "type": "string",
+            "enum": [
+              "csv"
+            ]
+          },
+          "name": "exportAs",
+          "in": "path",
+          "required": true,
+          "description": "Export as format"
+        },
+        {
+          "$ref": "#/components/parameters/xc-auth"
+        }
+      ]
     }
   },
   "components": {
@@ -11487,6 +11953,66 @@
         ],
         "title": "Attachment Response Model"
       },
+      "Comment": {
+        "description": "Model for Comment",
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id",
+            "description": "Unique ID"
+          },
+          "row_id": {
+            "type": "string",
+            "example": "rec0Adp9PMG9o7uJy",
+            "description": "Row ID"
+          },
+          "comment": {
+            "type": "string",
+            "example": "This is a comment",
+            "description": "Comment"
+          },
+          "created_by": {
+            "$ref": "#/components/schemas/Id",
+            "example": "usr0Adp9PMG9o7uJy",
+            "description": "Created By"
+          },
+          "resolved_by": {
+            "$ref": "#/components/schemas/Id",
+            "example": "usr0Adp9PMG9o7uJy",
+            "description": "Resolved By"
+          },
+          "parent_comment_id": {
+            "$ref": "#/components/schemas/Id",
+            "example": "cmt043cx4r30343ff",
+            "description": "Parent Comment ID"
+          },
+          "source_id": {
+            "$ref": "#/components/schemas/Id",
+            "example": "src0Adp9PMG9o7uJy",
+            "description": "Source ID"
+          },
+          "base_id": {
+            "$ref": "#/components/schemas/Id",
+            "example": "bas0Adp9PMG9o7uJy",
+            "description": "Base ID"
+          },
+          "fk_model_id": {
+            "$ref": "#/components/schemas/Id",
+            "example": "mod0Adp9PMG9o7uJy",
+            "description": "Model ID"
+          },
+          "created_at": {
+            "type": "string",
+            "example": "2020-05-20T12:00:00.000000Z",
+            "description": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "example": "2020-05-20T12:00:00.000000Z",
+            "description": "Updated At"
+          }
+        }
+      },
       "Audit": {
         "description": "Model for Audit",
         "examples": [
@@ -11678,7 +12204,15 @@
         "properties": {
           "alias": {
             "$ref": "#/components/schemas/StringOrNull",
-            "description": "Source Name - Default BASE will be null by default"
+            "description": "Source Name"
+          },
+          "integration_title": {
+            "$ref": "#/components/schemas/StringOrNull",
+            "description": "Integration Name"
+          },
+          "fk_integration_id": {
+            "$ref": "#/components/schemas/StringOrNull",
+            "description": "Integration Id"
           },
           "config": {
             "description": "Source Configuration"
@@ -11708,6 +12242,14 @@
           "is_local": {
             "$ref": "#/components/schemas/Bool",
             "description": "Is the data source minimal db"
+          },
+          "is_schema_readonly": {
+            "$ref": "#/components/schemas/Bool",
+            "description": "Is the data source schema readonly"
+          },
+          "is_data_readonly": {
+            "$ref": "#/components/schemas/Bool",
+            "description": "Is the data source data readonly"
           },
           "order": {
             "description": "The order of the list of sources",
@@ -11892,6 +12434,9 @@
               "sqlite3",
               "databricks"
             ],
+            "type": "string"
+          },
+          "fk_integration_id": {
             "type": "string"
           }
         },
@@ -12428,7 +12973,7 @@
         "description": "Model for Comment Request",
         "examples": [
           {
-            "description": "This is the comment for the row",
+            "comment": "This is the comment for the row",
             "fk_model_id": "md_ehn5izr99m7d45",
             "row_id": "3"
           }
@@ -12436,10 +12981,11 @@
         "title": "Comment Request Model",
         "type": "object",
         "properties": {
-          "description": {
+          "comment": {
             "type": "string",
             "description": "Description for the target row",
-            "example": "This is the comment for the row"
+            "example": "This is the comment for the row",
+            "maxLength": 3000
           },
           "fk_model_id": {
             "type": "string",
@@ -12464,16 +13010,23 @@
         },
         "examples": [
           {
-            "description": "This is the comment for the row"
+            "comment": "This is the comment for the row",
+            "fk_model_id": "md_ehn5izr99m7d45"
           }
         ],
         "title": "Comment Update Request Model",
         "type": "object",
         "properties": {
-          "description": {
+          "comment": {
             "type": "string",
             "description": "Description for the target row",
-            "example": "This is the comment for the row"
+            "example": "This is the comment for the row",
+            "maxLength": 3000
+          },
+          "fk_model_id": {
+            "type": "string",
+            "description": "Foreign Key to Model",
+            "example": "md_ehn5izr99m7d45"
           }
         }
       },
@@ -13844,7 +14397,8 @@
             "help": null,
             "group_by": 0,
             "group_by_order": null,
-            "group_by_sort": null
+            "group_by_sort": null,
+            "aggregation": "sum"
           }
         ],
         "title": "Grid Column Model",
@@ -13924,6 +14478,11 @@
             "$ref": "#/components/schemas/StringOrNull",
             "description": "Group By Sort",
             "example": "asc"
+          },
+          "aggregation": {
+            "$ref": "#/components/schemas/StringOrNull",
+            "description": "Aggregation",
+            "example": "sum"
           }
         },
         "x-stoplight": {
@@ -13974,6 +14533,11 @@
             "$ref": "#/components/schemas/StringOrNull",
             "description": "Group By Sort",
             "example": "asc"
+          },
+          "aggregation": {
+            "$ref": "#/components/schemas/StringOrNull",
+            "description": "Aggregation",
+            "example": "sum"
           }
         },
         "title": "Grid Column Request Model",
@@ -14365,7 +14929,11 @@
             "type": "string",
             "description": "Hook Event",
             "example": "after",
-            "enum": ["after", "before"]
+            "enum": [
+              "after",
+              "before",
+              "manual"
+            ]
           },
           "execution_time": {
             "type": "string",
@@ -14393,7 +14961,8 @@
               "delete",
               "bulkInsert",
               "bulkUpdate",
-              "bulkDelete"
+              "bulkDelete",
+              "trigger"
             ],
             "example": "insert"
           },
@@ -14648,7 +15217,7 @@
             "x-stoplight": {
               "id": "uqq8xmyz97t1u"
             },
-            "description": "Baes ID\n"
+            "description": "Base ID\n"
           },
           "base_id": {
             "$ref": "#/components/schemas/Id",
@@ -14873,6 +15442,9 @@
             "type": "string"
           },
           "fk_mm_model_id": {
+            "type": "string"
+          },
+          "fk_target_view_id": {
             "type": "string"
           },
           "fk_mm_parent_column_id": {
@@ -15786,6 +16358,11 @@
             "example": "p_124hhlkbeasewh",
             "type": "string"
           },
+          "fk_workspace_id": {
+            "description": "Workspace ID",
+            "example": "ws_123456",
+            "type": "string"
+          },
           "is_meta": {
             "$ref": "#/components/schemas/Bool"
           },
@@ -16151,6 +16728,7 @@
               "min",
               "max",
               "avg",
+              "sum",
               "countDistinct",
               "sumDistinct",
               "avgDistinct"
@@ -18994,11 +19572,20 @@
       "xc-auth": {
         "name": "xc-auth",
         "in": "header",
-        "required": false,
+        "required": true,
         "schema": {
           "type": "string"
         },
         "description": "Auth Token is a JWT Token generated based on the logged-in user. By default, the token is only valid for 10 hours. However, you can change the value by defining it using environment variable NC_JWT_EXPIRES_IN."
+      },
+      "xc-token": {
+        "name": "xc-token",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "API Token. Refer [here](https://docs.nocodb.com/account-settings/api-tokens/) to know more"
       }
     }
   }
