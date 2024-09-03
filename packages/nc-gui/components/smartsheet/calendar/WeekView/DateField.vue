@@ -5,10 +5,25 @@ import type { Row } from '~/lib/types'
 
 const emits = defineEmits(['expandRecord', 'newRecord'])
 
-const { selectedDateRange, formattedData, formattedSideBarData, calendarRange, selectedDate, displayField, updateRowProperty } =
-  useCalendarViewStoreOrThrow()
+const {
+  selectedDateRange,
+  formattedData,
+  formattedSideBarData,
+  calendarRange,
+  selectedDate,
+  displayField,
+  updateRowProperty,
+  viewMetaProperties,
+  updateFormat,
+} = useCalendarViewStoreOrThrow()
+
+const maxVisibleDays = computed(() => {
+  return viewMetaProperties.value?.hide_weekend ? 5 : 7
+})
 
 const container = ref<null | HTMLElement>(null)
+
+const { $e } = useNuxtApp()
 
 const { width: containerWidth } = useElementSize(container)
 
@@ -41,12 +56,17 @@ const getFieldStyle = (field: ColumnType) => {
 // Calculate the dates of the week
 const weekDates = computed(() => {
   let startOfWeek = dayjs(selectedDateRange.value.start)
-  const endOfWeek = dayjs(selectedDateRange.value.end)
+  let endOfWeek = dayjs(selectedDateRange.value.end)
+
+  if (maxVisibleDays.value === 5) {
+    endOfWeek = endOfWeek.subtract(2, 'day')
+  }
   const datesArray = []
   while (startOfWeek.isBefore(endOfWeek) || startOfWeek.isSame(endOfWeek, 'day')) {
     datesArray.push(dayjs(startOfWeek))
     startOfWeek = startOfWeek.add(1, 'day')
   }
+
   return datesArray
 })
 
@@ -111,7 +131,7 @@ const calendarData = computed(() => {
   }
 
   const recordsInRange: Array<Row> = []
-  const perDayWidth = containerWidth.value / 7
+  const perDayWidth = containerWidth.value / maxVisibleDays.value
 
   calendarRange.value.forEach((range) => {
     const fromCol = range.fk_from_col
@@ -284,7 +304,7 @@ const onResize = (event: MouseEvent) => {
   const ogEndDate = dayjs(resizeRecord.value.row[toCol.title!])
   const ogStartDate = dayjs(resizeRecord.value.row[fromCol.title!])
 
-  const day = Math.floor(percentX * 7)
+  const day = Math.floor(percentX * maxVisibleDays.value)
 
   let updateProperty: string[] = []
   let updateRecord: Row
@@ -305,7 +325,7 @@ const onResize = (event: MouseEvent) => {
       ...resizeRecord.value,
       row: {
         ...resizeRecord.value.row,
-        [toCol.title!]: newEndDate.format('YYYY-MM-DD HH:mm:ssZ'),
+        [toCol.title!]: newEndDate.format(updateFormat.value),
       },
     }
   } else if (resizeDirection.value === 'left') {
@@ -323,7 +343,7 @@ const onResize = (event: MouseEvent) => {
       ...resizeRecord.value,
       row: {
         ...resizeRecord.value.row,
-        [fromCol.title!]: dayjs(newStartDate).format('YYYY-MM-DD HH:mm:ssZ'),
+        [fromCol.title!]: dayjs(newStartDate).format(updateFormat.value),
       },
     }
   }
@@ -370,7 +390,7 @@ const calculateNewRow = (event: MouseEvent, updateSideBarData?: boolean) => {
 
   // Calculate the day index based on the percentage of the width
   // The day index is a number between 0 and 6
-  const day = Math.floor(percentX * 7)
+  const day = Math.floor(percentX * maxVisibleDays.value)
 
   // Calculate the new start date based on the day index by adding the day index to the start date of the selected date range
   const newStartDate = dayjs(selectedDateRange.value.start).add(day, 'day')
@@ -382,7 +402,7 @@ const calculateNewRow = (event: MouseEvent, updateSideBarData?: boolean) => {
     ...dragRecord.value,
     row: {
       ...dragRecord.value.row,
-      [fromCol.title!]: dayjs(newStartDate).format('YYYY-MM-DD HH:mm:ssZ'),
+      [fromCol.title!]: dayjs(newStartDate).format(updateFormat.value),
     },
   }
 
@@ -406,7 +426,7 @@ const calculateNewRow = (event: MouseEvent, updateSideBarData?: boolean) => {
       endDate = newStartDate.clone()
     }
 
-    newRow.row[toCol.title!] = dayjs(endDate).format('YYYY-MM-DD HH:mm:ssZ')
+    newRow.row[toCol.title!] = dayjs(endDate).format(updateFormat.value)
     updateProperty.push(toCol.title!)
   }
 
@@ -467,13 +487,13 @@ const stopDrag = (event: MouseEvent) => {
 }
 
 const dragStart = (event: MouseEvent, record: Row) => {
-  if (!isUIAllowed('dataEdit')) return
   if (resizeInProgress.value) return
   let target = event.target as HTMLElement
 
   isDragging.value = false
 
   dragTimeout.value = setTimeout(() => {
+    if (!isUIAllowed('dataEdit')) return
     isDragging.value = true
     while (!target.classList.contains('draggable-record')) {
       target = target.parentElement as HTMLElement
@@ -526,6 +546,7 @@ const dropEvent = (event: DragEvent) => {
       dragElement.value = null
     }
     updateRowProperty(newRow, updateProperty, false)
+    $e('c:calendar:day:drag-record')
   }
 }
 
@@ -541,7 +562,7 @@ const addRecord = (date: dayjs.Dayjs) => {
   if (!fromCol) return
   const newRecord = {
     row: {
-      [fromCol.title!]: date.format('YYYY-MM-DD HH:mm:ssZ'),
+      [fromCol.title!]: date.format(updateFormat.value),
     },
   }
   emits('newRecord', newRecord)
@@ -550,14 +571,18 @@ const addRecord = (date: dayjs.Dayjs) => {
 
 <template>
   <div class="flex relative flex-col prevent-select" data-testid="nc-calendar-week-view" @drop="dropEvent">
-    <div class="flex">
+    <div class="flex h-6">
       <div
         v-for="(date, weekIndex) in weekDates"
         :key="weekIndex"
         :class="{
           '!border-brand-500 !border-b-gray-200': dayjs(date).isSame(selectedDate, 'day'),
+          'w-1/5': maxVisibleDays === 5,
+          'w-1/7': maxVisibleDays === 7,
         }"
-        class="w-1/7 text-center text-sm text-gray-500 w-full py-1 border-gray-200 border-l-gray-50 border-t-gray-50 last:border-r-0 border-1 bg-gray-50"
+        class="cursor-pointer text-center text-[10px] font-semibold leading-4 flex items-center justify-center uppercase text-gray-500 w-full py-1 border-gray-200 border-l-gray-50 border-t-gray-50 last:border-r-0 border-1 bg-gray-50"
+        @click="selectDate(date)"
+        @dblclick="addRecord(date)"
       >
         {{ dayjs(date).format('DD ddd') }}
       </div>
@@ -569,8 +594,10 @@ const addRecord = (date: dayjs.Dayjs) => {
         :class="{
           '!border-1 !border-t-0 border-brand-500': dayjs(date).isSame(selectedDate, 'day'),
           '!bg-gray-50': date.get('day') === 0 || date.get('day') === 6,
+          'w-1/5': maxVisibleDays === 5,
+          'w-1/7': maxVisibleDays === 7,
         }"
-        class="flex flex-col border-r-1 min-h-[100vh] last:border-r-0 items-center w-1/7"
+        class="flex cursor-pointer flex-col border-r-1 min-h-[100vh] last:border-r-0 items-center"
         data-testid="nc-calendar-week-day"
         @click="selectDate(date)"
         @dblclick="addRecord(date)"

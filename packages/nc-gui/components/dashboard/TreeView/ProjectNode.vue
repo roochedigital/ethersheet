@@ -29,6 +29,8 @@ const { isMobileMode } = useGlobal()
 
 const { api } = useApi()
 
+const { auditLogsQuery, auditPaginationData } = storeToRefs(useWorkspace())
+
 const { createProject: _createProject, updateProject, getProjectMetaInfo, loadProject } = basesStore
 
 const { bases } = storeToRefs(basesStore)
@@ -69,7 +71,7 @@ const { t } = useI18n()
 
 const input = ref<HTMLInputElement>()
 
-const baseRole = inject(ProjectRoleInj)
+const baseRole = computed(() => base.value.project_role || base.value.workspace_role)
 
 const { activeProjectId } = storeToRefs(useBases())
 
@@ -100,9 +102,9 @@ const baseViewOpen = computed(() => {
   return routeNameAfterProjectView.split('-').length === 2 || routeNameAfterProjectView.split('-').length === 1
 })
 
-const showBaseOption = computed(() => {
-  return ['airtableImport', 'csvImport', 'jsonImport', 'excelImport'].some((permission) => isUIAllowed(permission))
-})
+const showBaseOption = (source: SourceType) => {
+  return ['airtableImport', 'csvImport', 'jsonImport', 'excelImport'].some((permission) => isUIAllowed(permission, { source }))
+}
 
 const enableEditMode = () => {
   editMode.value = true
@@ -110,7 +112,7 @@ const enableEditMode = () => {
   nextTick(() => {
     input.value?.focus()
     input.value?.select()
-    input.value?.scrollIntoView()
+    // input.value?.scrollIntoView()
   })
 }
 
@@ -126,7 +128,7 @@ const enableEditModeForSource = (sourceId: string) => {
     if (!input) return
     input?.focus()
     input?.select()
-    input?.scrollIntoView()
+    // input?.scrollIntoView()
   })
 }
 
@@ -223,6 +225,19 @@ const setColor = async (color: string, base: BaseType) => {
   }
 }
 
+/**
+ * Opens a dialog to create a new table.
+ *
+ * @returns {void}
+ *
+ * @remarks
+ * This function is triggered when the user initiates the table creation process.
+ * It opens a dialog for table creation, handles the dialog closure,
+ * and potentially scrolls to the newly created table.
+ *
+ * @see {@link packages/nc-gui/components/smartsheet/topbar/TableListDropdown.vue} for a similar implementation
+ * of table creation dialog. If this function is updated, consider updating the other implementation as well.
+ */
 function openTableCreateDialog(sourceIndex?: number | undefined) {
   const isOpen = ref(true)
   let sourceId = base.value!.sources?.[0].id
@@ -444,6 +459,40 @@ const onTableIdCopy = async () => {
     message.error(e.message)
   }
 }
+
+const getSource = (sourceId: string) => {
+  return base.value.sources?.find((s) => s.id === sourceId)
+}
+
+async function openAudit(source: SourceType) {
+  $e('c:project:audit')
+
+  auditPaginationData.value.page = 1
+
+  auditLogsQuery.value = {
+    ...auditLogsQuery.value,
+    orderBy: {
+      created_at: 'desc',
+      user: undefined,
+    },
+  }
+
+  const isOpen = ref(true)
+
+  const { close } = useDialog(resolveComponent('DlgProjectAudit'), {
+    'modelValue': isOpen,
+    'sourceId': source!.id,
+    'onUpdate:modelValue': () => closeDialog(),
+    'baseId': base.value!.id,
+    'bordered': true,
+  })
+
+  function closeDialog() {
+    isOpen.value = false
+
+    close(1000)
+  }
+}
 </script>
 
 <template>
@@ -454,7 +503,7 @@ const onTableIdCopy = async () => {
       :data-testid="`nc-sidebar-base-${base.title}`"
       :data-base-id="base.id"
     >
-      <div class="flex items-center gap-0.75 py-0.25 cursor-pointer" @contextmenu="setMenuContext('base', base)">
+      <div class="flex items-center gap-0.75 py-0.5 cursor-pointer" @contextmenu="setMenuContext('base', base)">
         <div
           ref="baseNodeRefs"
           :class="{
@@ -462,7 +511,7 @@ const onTableIdCopy = async () => {
             'hover:bg-gray-200': !(activeProjectId === base.id && baseViewOpen),
           }"
           :data-testid="`nc-sidebar-base-title-${base.title}`"
-          class="nc-sidebar-node base-title-node h-7.25 flex-grow rounded-md group flex items-center w-full pr-1 pl-1.5"
+          class="nc-sidebar-node base-title-node h-7 flex-grow rounded-md group flex items-center w-full pr-1 pl-1.5"
         >
           <div class="flex items-center mr-1" @click="onProjectClick(base)">
             <div class="flex items-center select-none w-6 h-full">
@@ -487,7 +536,7 @@ const onTableIdCopy = async () => {
             ref="input"
             v-model="tempTitle"
             class="flex-grow leading-1 outline-0 ring-none capitalize !text-inherit !bg-transparent flex-1 mr-4"
-            :class="{ 'text-black font-semibold': activeProjectId === base.id && baseViewOpen && !isMobileMode }"
+            :class="activeProjectId === base.id && baseViewOpen ? '!text-brand-600 !font-semibold' : '!text-gray-700'"
             @click.stop
             @keyup.enter="updateProjectTitle"
             @keyup.esc="updateProjectTitle"
@@ -497,7 +546,7 @@ const onTableIdCopy = async () => {
             v-else
             class="nc-sidebar-node-title capitalize text-ellipsis overflow-hidden select-none flex-1"
             :style="{ wordBreak: 'keep-all', whiteSpace: 'nowrap', display: 'inline' }"
-            :class="{ 'text-black font-semibold': activeProjectId === base.id && baseViewOpen }"
+            :class="activeProjectId === base.id && baseViewOpen ? 'text-brand-600 font-semibold' : 'text-gray-700'"
             show-on-truncate-only
             @click="onProjectClick(base)"
           >
@@ -577,6 +626,17 @@ const onTableIdCopy = async () => {
                       </div>
                     </NcMenuItem>
 
+                    <!-- Audit -->
+                    <NcMenuItem
+                      v-if="isUIAllowed('baseAuditList') && base?.sources?.[0]?.enabled"
+                      key="audit"
+                      data-testid="nc-sidebar-base-audit"
+                      @click="openAudit(base?.sources?.[0])"
+                    >
+                      <GeneralIcon icon="audit" class="group-hover:text-black" />
+                      {{ $t('title.audit') }}
+                    </NcMenuItem>
+
                     <!-- Swagger: Rest APIs -->
                     <NcMenuItem
                       v-if="isUIAllowed('apiDocs')"
@@ -596,7 +656,7 @@ const onTableIdCopy = async () => {
                     </NcMenuItem>
                   </template>
 
-                  <template v-if="base?.sources?.[0]?.enabled && showBaseOption">
+                  <template v-if="base?.sources?.[0]?.enabled && showBaseOption(base?.sources?.[0])">
                     <NcDivider />
                     <DashboardTreeViewBaseOptions v-model:base="base" :source="base.sources[0]" />
                   </template>
@@ -631,7 +691,7 @@ const onTableIdCopy = async () => {
             </NcDropdown>
 
             <NcButton
-              v-if="isUIAllowed('tableCreate', { roles: baseRole })"
+              v-if="isUIAllowed('tableCreate', { roles: baseRole, source: base?.sources?.[0] })"
               v-e="['c:base:create-table']"
               :disabled="!base?.sources?.[0]?.enabled"
               class="nc-sidebar-node-btn"
@@ -652,7 +712,7 @@ const onTableIdCopy = async () => {
               v-e="['c:base:expand']"
               type="text"
               size="xxsmall"
-              class="nc-sidebar-node-btn nc-sidebar-expand !xs:opacity-100"
+              class="nc-sidebar-node-btn nc-sidebar-expand !xs:opacity-100 !mr-0 mt-0.5"
               :class="{
                 '!opacity-100': isOptionsOpen,
               }"
@@ -692,7 +752,7 @@ const onTableIdCopy = async () => {
                     v-e="['c:source:toggle-expand']"
                     class="!mx-0 !px-0 nc-sidebar-source-node"
                     :class="[{ hidden: searchActive && !!filterQuery }]"
-                    expand-icon-position="left"
+                    expand-icon-position="right"
                     :bordered="false"
                     ghost
                   >
@@ -701,7 +761,7 @@ const onTableIdCopy = async () => {
                         v-e="['c:external:base:expand']"
                         type="text"
                         size="xxsmall"
-                        class="nc-sidebar-node-btn nc-sidebar-expand !xs:opacity-100"
+                        class="nc-sidebar-node-btn nc-sidebar-expand !xs:opacity-100 !mr-0 mt-0.5"
                         :class="{ '!opacity-100 !inline-block': isBasesOptionsOpen[source!.id!] }"
                       >
                         <GeneralIcon
@@ -713,7 +773,7 @@ const onTableIdCopy = async () => {
                     </template>
                     <a-collapse-panel :key="`collapse-${source.id}`">
                       <template #header>
-                        <div class="nc-sidebar-node min-w-20 w-full h-full flex flex-row group py-0.25 pr-6.5 !mr-0">
+                        <div class="nc-sidebar-node min-w-20 w-full h-full flex flex-row group py-0.5 pr-6.5 !mr-0">
                           <div
                             v-if="sourceIndex === 0"
                             class="source-context flex items-center gap-2 text-gray-800 nc-sidebar-node-title"
@@ -724,17 +784,32 @@ const onTableIdCopy = async () => {
                           </div>
                           <div
                             v-else
-                            class="source-context flex flex-grow items-center gap-1.75 text-gray-800 min-w-1/20 max-w-full"
+                            class="source-context flex flex-grow items-center gap-1 text-gray-800 min-w-1/20 max-w-full"
                             @contextmenu="setMenuContext('source', source)"
                           >
-                            <GeneralBaseLogo
-                              class="flex-none min-w-4 !xs:(min-w-4.25 w-4.25 text-sm) !text-gray-600 !group-hover:text-gray-800"
-                            />
+                            <NcTooltip
+                              :tooltip-style="{ 'min-width': 'max-content' }"
+                              :overlay-inner-style="{ 'min-width': 'max-content' }"
+                              :mouse-leave-delay="0.3"
+                              placement="topLeft"
+                              trigger="hover"
+                              class="flex items-center"
+                            >
+                              <template #title>
+                                <component :is="getSourceTooltip(source)" />
+                              </template>
+                              <div class="flex-none w-6 flex items-center justify-center">
+                                <GeneralBaseLogo
+                                  :color="getSourceIconColor(source)"
+                                  class="flex-none min-w-4 !xs:(min-w-4.25 w-4.25 text-sm)"
+                                />
+                              </div>
+                            </NcTooltip>
                             <input
                               v-if="source.id && sourceRenameHelpers[source.id]?.editMode"
                               ref="input"
                               v-model="sourceRenameHelpers[source.id].tempTitle"
-                              class="flex-grow leading-1 outline-0 ring-none capitalize !text-inherit !bg-transparent flex-1 mr-4"
+                              class="flex-grow leading-1 outline-0 ring-none capitalize !text-inherit !bg-transparent flex-1 mr-4 !text-gray-700"
                               :data-source-rename-input-id="source.id"
                               @click.stop
                               @keydown.enter.stop.prevent
@@ -744,28 +819,14 @@ const onTableIdCopy = async () => {
                             />
                             <NcTooltip
                               v-else
-                              class="nc-sidebar-node-title capitalize text-ellipsis overflow-hidden select-none"
+                              class="nc-sidebar-node-title capitalize text-ellipsis overflow-hidden select-none text-gray-700"
                               :style="{ wordBreak: 'keep-all', whiteSpace: 'nowrap', display: 'inline' }"
-                              :class="{
-                                'text-black font-semibold': activeProjectId === base.id && baseViewOpen && !isMobileMode,
-                              }"
                               show-on-truncate-only
                             >
                               <template #title> {{ source.alias || '' }}</template>
                               <span :data-testid="`nc-sidebar-base-${source.alias}`">
                                 {{ source.alias || '' }}
                               </span>
-                            </NcTooltip>
-                            <NcTooltip class="xs:(hidden) flex items-center mr-1">
-                              <template #title>{{ $t('objects.externalDb') }}</template>
-
-                              <GeneralIcon
-                                icon="info"
-                                class="flex-none text-gray-400 hover:text-gray-700 nc-sidebar-node-btn"
-                                :class="{
-                                  '!hidden': !isBasesOptionsOpen[source!.id!],
-                                }"
-                              />
                             </NcTooltip>
                           </div>
                           <div class="flex flex-row items-center gap-x-0.25">
@@ -812,13 +873,17 @@ const onTableIdCopy = async () => {
                                     </div>
                                   </NcMenuItem>
 
-                                  <DashboardTreeViewBaseOptions v-if="showBaseOption" v-model:base="base" :source="source" />
+                                  <DashboardTreeViewBaseOptions
+                                    v-if="showBaseOption(source)"
+                                    v-model:base="base"
+                                    :source="source"
+                                  />
                                 </NcMenu>
                               </template>
                             </NcDropdown>
 
                             <NcButton
-                              v-if="isUIAllowed('tableCreate', { roles: baseRole })"
+                              v-if="isUIAllowed('tableCreate', { roles: baseRole, source })"
                               v-e="['c:source:add-table']"
                               type="text"
                               size="xxsmall"
@@ -860,7 +925,7 @@ const onTableIdCopy = async () => {
 
         <template v-else-if="contextMenuTarget.type === 'table'">
           <NcTooltip>
-            <template #title> {{ $t('labels.clickToCopyTableID') }} </template>
+            <template #title> {{ $t('labels.clickToCopyTableID') }}</template>
             <div
               class="flex items-center justify-between p-2 mx-1.5 rounded-md cursor-pointer hover:bg-gray-100 group"
               @click.stop="onTableIdCopy"
@@ -879,9 +944,17 @@ const onTableIdCopy = async () => {
             </div>
           </NcTooltip>
 
-          <template v-if="isUIAllowed('tableRename') || isUIAllowed('tableDelete')">
+          <template
+            v-if="
+              isUIAllowed('tableRename', { source: getSource(contextMenuTarget.value?.source_id) }) ||
+              isUIAllowed('tableDelete', { source: getSource(contextMenuTarget.value?.source_id) })
+            "
+          >
             <NcDivider />
-            <NcMenuItem v-if="isUIAllowed('tableRename')" @click="openRenameTableDialog(contextMenuTarget.value, true)">
+            <NcMenuItem
+              v-if="isUIAllowed('tableRename', { source: getSource(contextMenuTarget.value?.source_id) })"
+              @click="openRenameTableDialog(contextMenuTarget.value, true)"
+            >
               <div v-e="['c:table:rename']" class="nc-base-option-item flex gap-2 items-center">
                 <GeneralIcon icon="rename" class="text-gray-700" />
                 {{ $t('general.rename') }} {{ $t('objects.table') }}
@@ -889,7 +962,10 @@ const onTableIdCopy = async () => {
             </NcMenuItem>
 
             <NcMenuItem
-              v-if="isUIAllowed('tableDuplicate') && (contextMenuBase?.is_meta || contextMenuBase?.is_local)"
+              v-if="
+                isUIAllowed('tableDuplicate', { source: getSource(contextMenuTarget.value?.source_id) }) &&
+                (contextMenuBase?.is_meta || contextMenuBase?.is_local)
+              "
               @click="duplicateTable(contextMenuTarget.value)"
             >
               <div v-e="['c:table:duplicate']" class="nc-base-option-item flex gap-2 items-center">
@@ -898,7 +974,11 @@ const onTableIdCopy = async () => {
               </div>
             </NcMenuItem>
             <NcDivider />
-            <NcMenuItem v-if="isUIAllowed('table-delete')" class="!hover:bg-red-50" @click="tableDelete">
+            <NcMenuItem
+              v-if="isUIAllowed('tableDelete', { source: getSource(contextMenuTarget.value?.source_id) })"
+              class="!hover:bg-red-50"
+              @click="tableDelete"
+            >
               <div class="nc-base-option-item flex gap-2 items-center text-red-600">
                 <GeneralIcon icon="delete" />
                 {{ $t('general.delete') }} {{ $t('objects.table') }}
@@ -919,14 +999,14 @@ const onTableIdCopy = async () => {
   <DlgProjectDuplicate v-if="selectedProjectToDuplicate" v-model="isDuplicateDlgOpen" :base="selectedProjectToDuplicate" />
   <GeneralModal v-model:visible="isErdModalOpen" size="large">
     <div class="h-[80vh]">
-      <LazyDashboardSettingsErd :source-id="activeBaseId" />
+      <LazyDashboardSettingsErd :base-id="base?.id" :source-id="activeBaseId" />
     </div>
   </GeneralModal>
 </template>
 
 <style lang="scss" scoped>
 :deep(.ant-collapse-header) {
-  @apply !mx-0 !pl-8.75 h-7.1 !xs:(pl-7 h-[3rem]) !pr-0.5 !py-0 hover:bg-gray-200 xs:(hover:bg-gray-50) !rounded-md;
+  @apply !mx-0 !pl-7.5 h-7 !xs:(pl-6 h-[3rem]) !pr-0.5 !py-0 hover:bg-gray-200 xs:(hover:bg-gray-50) !rounded-md;
 
   .ant-collapse-arrow {
     @apply !right-1 !xs:(flex-none border-1 border-gray-200 w-6.5 h-6.5 mr-1);

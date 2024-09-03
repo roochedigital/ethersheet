@@ -64,6 +64,39 @@ export const formNumberInputValidator = (cal: ColumnType) => {
   }
 }
 
+export const requiredFieldValidatorFn = (value: unknown) => {
+  value = unref(value)
+  if (Array.isArray(value)) return !!value.length
+
+  if (value === undefined || value === null) {
+    return false
+  }
+
+  if (value === false) {
+    return true
+  }
+
+  if (typeof value === 'object') {
+    if (Object.keys(value).length > 0) {
+      return true
+    }
+
+    return false
+  }
+
+  return !!String(value).length
+}
+
+export const isEmptyValidatorValue = (v: Validation) => {
+  if (v.type === StringValidationType.Regex) {
+    return v.type && typeof v.regex === 'string' ? !v.regex.trim() : v.regex === null
+  } else if (v.type && v.value !== undefined) {
+    return v.type && typeof v.value === 'string' ? !v.value.trim() : v.value === null
+  }
+
+  return false
+}
+
 export const extractFieldValidator = (_validators: Validation[], element: ColumnType) => {
   const rules: RuleObject[] = []
 
@@ -106,4 +139,17 @@ export const extractFieldValidator = (_validators: Validation[], element: Column
   }
 
   return rules
+}
+
+export const getValidFieldName = (title: string, uniqueFieldNames: Set<string>) => {
+  title = title.replace(/\./g, '_')
+  let counter = 1
+
+  let newTitle = title
+  while (uniqueFieldNames.has(newTitle)) {
+    newTitle = `${title}_${counter}`
+    counter++
+  }
+  uniqueFieldNames.add(newTitle)
+  return newTitle
 }

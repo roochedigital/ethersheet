@@ -1,5 +1,4 @@
 <script lang="ts" setup>
-import type { VNodeRef } from '@vue/runtime-core'
 import type { TableType, ViewType, ViewTypes } from 'nocodb-sdk'
 import type { WritableComputedRef } from '@vue/reactivity'
 import { isDefaultBase as _isDefaultBase } from '#imports'
@@ -21,7 +20,10 @@ interface Emits {
 
   (event: 'delete', view: ViewType): void
 
-  (event: 'openModal', data: { type: ViewTypes; title?: string; copyViewId?: string; groupingFieldColumnId?: string }): void
+  (
+    event: 'openModal',
+    data: { type: ViewTypes; title?: string; copyViewId?: string; groupingFieldColumnId?: string; coverImageColumnId?: string },
+  ): void
 }
 
 const props = defineProps<Props>()
@@ -53,11 +55,17 @@ provide(MetaInj, injectedTable)
 const isLocked = inject(IsLockedInj, ref(false))
 
 const isDefaultBase = computed(() => {
+  if (base.value?.sources?.length === 1) return true
+
   const source = base.value?.sources?.find((b) => b.id === vModel.value.source_id)
   if (!source) return false
 
   return _isDefaultBase(source)
 })
+
+const { openViewDescriptionDialog: _openViewDescriptionDialog } = inject(TreeViewInj)!
+
+const input = ref<HTMLInputElement>()
 
 const isDropdownOpen = ref(false)
 
@@ -87,6 +95,13 @@ const handleOnClick = () => {
   }
 }
 
+const focusInput = () => {
+  setTimeout(() => {
+    input.value?.focus()
+    input.value?.select()
+  })
+}
+
 /** Enable editing view name on dbl click */
 function onDblClick() {
   if (isMobileMode.value) return
@@ -96,6 +111,10 @@ function onDblClick() {
     isEditing.value = true
     _title.value = vModel.value.title
     $e('c:view:rename', { view: vModel.value?.type })
+
+    nextTick(() => {
+      focusInput()
+    })
   }
 }
 
@@ -137,10 +156,12 @@ const onRenameMenuClick = () => {
     isEditing.value = true
     _title.value = vModel.value.title
     $e('c:view:rename', { view: vModel.value?.type })
+
+    nextTick(() => {
+      focusInput()
+    })
   }
 }
-
-const focusInput: VNodeRef = (el) => (el as HTMLInputElement)?.focus()
 
 /** Rename a view */
 async function onRename() {
@@ -172,6 +193,12 @@ async function onRename() {
   emits('rename', vModel.value, originalTitle)
 
   onStopEdit()
+}
+
+const openViewDescriptionDialog = (view: ViewType) => {
+  isDropdownOpen.value = false
+
+  _openViewDescriptionDialog(view)
 }
 
 /** Cancel renaming view */
@@ -208,7 +235,7 @@ watch(isDropdownOpen, async () => {
 
 <template>
   <a-menu-item
-    class="nc-sidebar-node !min-h-7 !max-h-7 !mb-0.25 select-none group text-gray-700 !flex !items-center !mt-0 hover:(!bg-gray-200 !text-gray-900) cursor-pointer"
+    class="nc-sidebar-node !min-h-7 !max-h-7 !my-0.5 select-none group text-gray-700 !flex !items-center hover:(!bg-gray-200 !text-gray-700) cursor-pointer"
     :class="{
       '!pl-13.5 !xs:(pl-12)': isDefaultBase,
       '!pl-19 ': !isDefaultBase,
@@ -232,18 +259,18 @@ watch(isDropdownOpen, async () => {
           @emoji-selected="emits('selectIcon', $event)"
         >
           <template #default>
-            <GeneralViewIcon :meta="props.view" class="nc-view-icon"></GeneralViewIcon>
+            <GeneralViewIcon :meta="props.view" class="nc-view-icon w-4 !text-[16px]"></GeneralViewIcon>
           </template>
         </LazyGeneralEmojiPicker>
       </div>
 
       <a-input
         v-if="isEditing"
-        :ref="focusInput"
+        ref="input"
         v-model:value="_title"
         class="!bg-transparent !border-0 !ring-0 !outline-transparent !border-transparent !pl-0 !flex-1 mr-4"
         :class="{
-          'font-medium': activeView?.id === vModel.id,
+          'font-medium !text-brand-600': activeView?.id === vModel.id,
         }"
         @blur="onRename"
         @keydown.stop="onKeyDown($event)"
@@ -253,7 +280,7 @@ watch(isDropdownOpen, async () => {
         <div
           data-testid="sidebar-view-title"
           :class="{
-            'font-medium': activeView?.id === vModel.id,
+            'font-medium text-brand-600': activeView?.id === vModel.id,
           }"
           :style="{ wordBreak: 'keep-all', whiteSpace: 'nowrap', display: 'inline' }"
         >
@@ -262,6 +289,15 @@ watch(isDropdownOpen, async () => {
       </NcTooltip>
 
       <template v-if="!isEditing && !isLocked">
+        <NcTooltip v-if="vModel.description?.length" placement="bottom">
+          <template #title>
+            {{ vModel.description }}
+          </template>
+
+          <NcButton type="text" class="!hover:bg-transparent" size="xsmall">
+            <GeneralIcon icon="info" class="!w-3.5 !h-3.5 nc-info-icon group-hover:opacity-100 text-gray-600 opacity-0" />
+          </NcButton>
+        </NcTooltip>
         <NcDropdown v-model:visible="isDropdownOpen" overlay-class-name="!rounded-lg">
           <NcButton
             v-e="['c:view:option']"
@@ -286,6 +322,7 @@ watch(isDropdownOpen, async () => {
               @close-modal="isDropdownOpen = false"
               @rename="onRenameMenuClick"
               @delete="onDelete"
+              @description-update="openViewDescriptionDialog(vModel)"
             />
           </template>
         </NcDropdown>

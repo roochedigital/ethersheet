@@ -21,6 +21,8 @@ const { t } = useI18n()
 
 const { $e } = useNuxtApp()
 
+const { isDataReadOnly } = useRoles()
+
 const {
   childrenExcludedList,
   isChildrenExcludedListLinked,
@@ -58,10 +60,26 @@ const reloadTrigger = inject(ReloadRowDataHookInj, createEventHook())
 
 const reloadViewDataTrigger = inject(ReloadViewDataHookInj, createEventHook())
 
+const relation = computed(() => {
+  return injectedColumn!.value?.colOptions?.type
+})
+
 const linkRow = async (row: Record<string, any>, id: number) => {
   if (isNew.value) {
     addLTARRef(row, injectedColumn?.value as ColumnType)
-    isChildrenExcludedListLinked.value[id] = true
+    if (relation.value === 'oo' || relation.value === 'bt') {
+      isChildrenExcludedListLinked.value.forEach((isLinked, idx) => {
+        if (isLinked) {
+          isChildrenExcludedListLinked.value[idx] = false
+        }
+        if (id === idx) {
+          isChildrenExcludedListLinked.value[idx] = true
+        }
+      })
+    } else {
+      isChildrenExcludedListLinked.value[id] = true
+    }
+
     saveRow!()
 
     $e('a:links:link')
@@ -150,25 +168,26 @@ const fields = computedInject(FieldsInj, (_fields) => {
   return (relatedTableMeta.value.columns ?? [])
     .filter((col) => !isSystemColumn(col) && !isPrimary(col) && !isLinksOrLTAR(col) && !isAttachment(col))
     .sort((a, b) => {
-      if (a.meta?.defaultViewColOrder !== undefined && b.meta?.defaultViewColOrder !== undefined) {
-        return a.meta.defaultViewColOrder - b.meta.defaultViewColOrder
-      }
-      return 0
+      return (a.meta?.defaultViewColOrder ?? Infinity) - (b.meta?.defaultViewColOrder ?? Infinity)
     })
     .slice(0, isMobileMode.value ? 1 : 3)
 })
 
-const relation = computed(() => {
-  return injectedColumn!.value?.colOptions?.type
-})
-
 const totalItemsToShow = computed(() => {
   if (isForm.value || isNew.value) {
+    if (relation.value === 'bt' || relation.value === 'oo') {
+      return rowState.value?.[injectedColumn!.value?.title] ? 1 : 0
+    }
+
     return rowState.value?.[injectedColumn!.value?.title]?.length ?? 0
   }
 
   if (relation.value === 'bt') {
     return row.value?.row[relatedTableMeta.value?.title] ? 1 : 0
+  }
+
+  if (relation.value === 'oo') {
+    return row.value?.row[injectedColumn!.value?.title] ? 1 : 0
   }
 
   return childrenListCount.value ?? 0
@@ -392,15 +411,14 @@ const onFilterChange = () => {
 
           <p v-if="childrenExcludedListPagination.query">{{ $t('msg.noRecordsMatchYourSearchQuery') }}</p>
           <p v-else>
-            {{ $t('msg.thereAreNoRecordsInTable') }}
-            {{ relatedTableMeta?.title }}
+            {{ $t('msg.noRecordsAvailForLinking') }}
           </p>
         </div>
       </div>
       <div class="nc-dropdown-link-record-footer bg-gray-100 p-2 rounded-b-xl flex items-center justify-between min-h-11">
         <div class="flex">
           <NcButton
-            v-if="!isPublic"
+            v-if="!isPublic && !isDataReadOnly"
             v-e="['c:row-expand:open']"
             size="small"
             class="!hover:(bg-white text-brand-500) !h-7 !text-small"
@@ -439,6 +457,7 @@ const onFilterChange = () => {
       <LazySmartsheetExpandedForm
         v-if="expandedFormDlg"
         v-model="expandedFormDlg"
+        :load-row="!isPublic"
         :close-after-save="isExpandedFormCloseAfterSave"
         :meta="relatedTableMeta"
         :new-record-header="
@@ -461,6 +480,7 @@ const onFilterChange = () => {
         :row-id="extractPkFromRow(expandedFormRow, relatedTableMeta.columns as ColumnType[])"
         :state="newRowState"
         use-meta-fields
+        maintain-default-view-order
         :skip-reload="true"
         new-record-submit-btn-text="Create & Link"
         @created-record="onCreatedRecord"

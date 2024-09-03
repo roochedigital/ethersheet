@@ -28,6 +28,8 @@ const isForm = inject(IsFormInj, ref(false))
 
 const row = useVModel(props, 'row')
 
+const { isLinked, isLoading } = toRefs(props)
+
 const isPublic = inject(IsPublicInj, ref(false))
 
 const readOnly = inject(ReadonlyInj, ref(false))
@@ -39,13 +41,6 @@ interface Attachment {
   title: string
   type: string
   mimetype: string
-}
-
-const isRowEmpty = (row: any, col: any) => {
-  const val = row[col.title]
-  if (!val) return true
-
-  return Array.isArray(val) && val.length === 0
 }
 
 const attachments: ComputedRef<Attachment[]> = computed(() => {
@@ -95,11 +90,11 @@ const displayValue = computed(() => {
             <a-carousel autoplay class="!w-11 !h-11 !max-h-11 !max-w-11">
               <template #customPaging> </template>
               <template v-for="(attachmentObj, index) in attachments">
-                <LazyCellAttachmentImage
+                <LazyCellAttachmentPreviewImage
                   v-if="isImage(attachmentObj.title, attachmentObj.mimetype ?? attachmentObj.type)"
                   :key="`carousel-${attachmentObj.title}-${index}`"
                   class="!w-11 !h-11 !max-h-11 !max-w-11object-cover !rounded-l-xl"
-                  :srcs="getPossibleAttachmentSrc(attachmentObj)"
+                  :srcs="getPossibleAttachmentSrc(attachmentObj, 'tiny')"
                 />
               </template>
             </a-carousel>
@@ -124,7 +119,7 @@ const displayValue = computed(() => {
             class="flex ml-[-0.25rem] sm:flex-row xs:(flex-col mt-2) gap-4 min-h-5"
           >
             <div v-for="field in fields" :key="field.id" class="sm:(w-1/3 max-w-1/3 overflow-hidden)">
-              <div v-if="!isRowEmpty(row, field)" class="flex flex-col gap-[-1]">
+              <div v-if="!isRowEmpty({ row }, field)" class="flex flex-col gap-[-1]">
                 <NcTooltip class="z-10 flex" placement="bottomLeft" :arrow-point-at-center="false">
                   <template #title>
                     <LazySmartsheetHeaderVirtualCell
@@ -170,25 +165,26 @@ const displayValue = computed(() => {
             </button>
           </NcTooltip>
         </div>
+        <template v-if="(!isPublic && !readOnly) || isForm">
+          <NcTooltip class="z-10 flex">
+            <template #title> {{ isLinked ? 'Unlink' : 'Link' }}</template>
 
-        <NcTooltip class="z-10 flex">
-          <template #title> {{ isLinked ? 'Unlink' : 'Link' }}</template>
-
-          <button
-            tabindex="-1"
-            class="nc-list-item-link-unlink-btn p-1.5 flex rounded-lg transition-all"
-            :class="{
-              'bg-gray-200 text-gray-800 hover:(bg-red-100 text-red-500)': isLinked,
-              'bg-green-[#D4F7E0] text-[#17803D] hover:bg-green-200': !isLinked,
-            }"
-            @click="$emit('linkOrUnlink')"
-          >
-            <div v-if="isLoading" class="flex">
-              <MdiLoading class="flex-none w-4 h-4 !text-brand-500 animate-spin" />
-            </div>
-            <GeneralIcon v-else :icon="isLinked ? 'minus' : 'plus'" class="flex-none w-4 h-4 !font-extrabold" />
-          </button>
-        </NcTooltip>
+            <button
+              tabindex="-1"
+              class="nc-list-item-link-unlink-btn p-1.5 flex rounded-lg transition-all"
+              :class="{
+                'bg-gray-200 text-gray-800 hover:(bg-red-100 text-red-500)': isLinked,
+                'bg-green-[#D4F7E0] text-[#17803D] hover:bg-green-200': !isLinked,
+              }"
+              @click="$emit('linkOrUnlink')"
+            >
+              <div v-if="isLoading" class="flex">
+                <MdiLoading class="flex-none w-4 h-4 !text-brand-500 animate-spin" />
+              </div>
+              <GeneralIcon v-else :icon="isLinked ? 'minus' : 'plus'" class="flex-none w-4 h-4 !font-extrabold" />
+            </button>
+          </NcTooltip>
+        </template>
       </div>
     </a-card>
   </div>

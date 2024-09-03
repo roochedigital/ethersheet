@@ -7,7 +7,9 @@ interface Props {
   columnPosition?: Pick<ColumnReqType, 'column_order'>
   preload?: Partial<ColumnType>
   tableExplorerColumns?: ColumnType[]
+  editDescription?: boolean
   fromTableExplorer?: boolean
+  isColumnValid?: (value: Partial<ColumnType>) => boolean
 }
 
 const props = defineProps<Props>()
@@ -16,19 +18,26 @@ const emit = defineEmits(['submit', 'cancel', 'mounted'])
 
 const meta = inject(MetaInj, ref())
 
-const column = toRef(props, 'column')
+const { column, preload, tableExplorerColumns, fromTableExplorer, isColumnValid, editDescription } = toRefs(props)
 
-const preload = toRef(props, 'preload')
+useProvideColumnCreateStore(meta, column, tableExplorerColumns, fromTableExplorer, isColumnValid)
 
-const tableExplorerColumns = toRef(props, 'tableExplorerColumns')
+const { isWebhookCreateModalOpen } = useColumnCreateStoreOrThrow()
 
-useProvideColumnCreateStore(meta, column, tableExplorerColumns)
+const isWebHookModalOpen = () => {
+  return isWebhookCreateModalOpen.value
+}
+
+defineExpose({
+  isWebHookModalOpen,
+})
 </script>
 
 <template>
   <SmartsheetColumnEditOrAdd
     :preload="preload"
     :column-position="props.columnPosition"
+    :edit-description="editDescription"
     :from-table-explorer="props.fromTableExplorer || false"
     @submit="emit('submit')"
     @cancel="emit('cancel')"

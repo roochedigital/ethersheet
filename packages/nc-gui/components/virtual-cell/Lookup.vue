@@ -20,13 +20,12 @@ const rowHeight = inject(RowHeightInj, ref(1) as any)
 
 provide(RowHeightInj, providedHeightRef)
 
-const relationColumn = computed(
-  () =>
-    meta.value?.columns?.find((c: ColumnType) => c.id === (column.value?.colOptions as LookupType)?.fk_relation_column_id) as
-      | (ColumnType & {
-          colOptions: LinkToAnotherRecordType | undefined
-        })
-      | undefined,
+const relationColumn = computed(() =>
+  meta.value?.id
+    ? metas.value[meta.value?.id]?.columns?.find(
+        (c: ColumnType) => c.id === (column.value?.colOptions as LookupType)?.fk_relation_column_id,
+      )
+    : undefined,
 )
 
 watch(
@@ -91,11 +90,12 @@ const { showEditNonEditableFieldWarning, showClearNonEditableFieldWarning, activ
     class="nc-cell-field h-full w-full nc-lookup-cell"
     tabindex="-1"
     :style="{
-      height: isGroupByLabel
-        ? undefined
-        : rowHeight
-        ? `${rowHeight === 1 ? rowHeightInPx['1'] - 4 : rowHeightInPx[`${rowHeight}`] - 18}px`
-        : `2.85rem`,
+      height:
+        isGroupByLabel || (lookupColumn && isAttachment(lookupColumn))
+          ? undefined
+          : rowHeight
+          ? `${rowHeight === 1 ? rowHeightInPx['1'] - 4 : rowHeightInPx[`${rowHeight}`] - 18}px`
+          : `2.85rem`,
     }"
     @dblclick="activateShowEditNonEditableFieldWarning"
   >
@@ -107,7 +107,7 @@ const { showEditNonEditableFieldWarning, showClearNonEditableFieldWarning, activ
     >
       <template v-if="lookupColumn">
         <!-- Render virtual cell -->
-        <div v-if="isVirtualCol(lookupColumn)" class="flex h-full">
+        <div v-if="isVirtualCol(lookupColumn) && lookupColumn.uidt !== UITypes.Rollup" class="flex h-full">
           <!-- If non-belongs-to and non-one-to-one LTAR column then pass the array value, else iterate and render -->
           <template
             v-if="
@@ -175,7 +175,16 @@ const { showEditNonEditableFieldWarning, showClearNonEditableFieldWarning, activ
                     'min-h-0 min-w-0': isAttachment(lookupColumn),
                   }"
                 >
+                  <LazySmartsheetVirtualCell
+                    v-if="lookupColumn.uidt === UITypes.Rollup"
+                    :edit-enabled="false"
+                    :read-only="true"
+                    :model-value="v"
+                    :column="lookupColumn"
+                    class="px-2"
+                  />
                   <LazySmartsheetCell
+                    v-else
                     :model-value="v"
                     :column="lookupColumn"
                     :edit-enabled="false"
@@ -217,6 +226,7 @@ const { showEditNonEditableFieldWarning, showClearNonEditableFieldWarning, activ
     @apply bg-transparent;
   }
 }
+
 .nc-cell-lookup-scroll:hover {
   &::-webkit-scrollbar-thumb {
     @apply bg-gray-200;
@@ -225,5 +235,11 @@ const { showEditNonEditableFieldWarning, showClearNonEditableFieldWarning, activ
 
 .nc-lookup-cell .nc-text-area-clamped-text {
   @apply !mr-1;
+}
+
+.nc-lookup-cell {
+  &:has(.nc-cell-attachment) {
+    height: auto !important;
+  }
 }
 </style>

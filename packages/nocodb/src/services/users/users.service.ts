@@ -19,7 +19,7 @@ import { NC_APP_SETTINGS } from '~/constants';
 import { AppHooksService } from '~/services/app-hooks/app-hooks.service';
 import { validatePayload } from '~/helpers';
 import { MetaService } from '~/meta/meta.service';
-import { MetaTable } from '~/utils/globals';
+import { MetaTable, RootScopes } from '~/utils/globals';
 import Noco from '~/Noco';
 import { Store, User, UserRefreshToken } from '~/models';
 import { randomTokenString } from '~/helpers/stringHelpers';
@@ -49,9 +49,14 @@ export class UsersService {
 
   async findOne(_email: string) {
     const email = _email.toLowerCase();
-    const user = await this.metaService.metaGet(null, null, MetaTable.USERS, {
-      email,
-    });
+    const user = await this.metaService.metaGet(
+      RootScopes.ROOT,
+      RootScopes.ROOT,
+      MetaTable.USERS,
+      {
+        email,
+      },
+    );
 
     return user;
   }
@@ -66,10 +71,15 @@ export class UsersService {
     email: string;
     lastname: any;
   }) {
-    return this.metaService.metaInsert2(null, null, MetaTable.USERS, {
-      ...param,
-      email: param.email?.toLowerCase(),
-    });
+    return this.metaService.metaInsert2(
+      RootScopes.ROOT,
+      RootScopes.ROOT,
+      MetaTable.USERS,
+      {
+        ...param,
+        email: param.email?.toLowerCase(),
+      },
+    );
   }
 
   async profileUpdate({
@@ -191,6 +201,9 @@ export class UsersService {
       token_version: randomTokenString(),
     });
 
+    // delete all refresh token and populate a new one
+    await UserRefreshToken.deleteAllUserToken(user.id);
+
     this.appHooksService.emit(AppEvents.USER_PASSWORD_CHANGE, {
       user: user,
       ip: param.req?.clientIp,
@@ -229,7 +242,7 @@ export class UsersService {
       });
       try {
         const template = (
-          await import('~/controllers/auth/ui/emailTemplates/forgotPassword')
+          await import('~/modules/auth/ui/emailTemplates/forgotPassword')
         ).default;
         await NcPluginMgrv2.emailAdapter().then((adapter) =>
           adapter.mailSend({
@@ -263,9 +276,14 @@ export class UsersService {
   async tokenValidate(param: { token: string }): Promise<any> {
     const token = param.token;
 
-    const user = await Noco.ncMeta.metaGet(null, null, MetaTable.USERS, {
-      reset_password_token: token,
-    });
+    const user = await Noco.ncMeta.metaGet(
+      RootScopes.ROOT,
+      RootScopes.ROOT,
+      MetaTable.USERS,
+      {
+        reset_password_token: token,
+      },
+    );
 
     if (!user || !user.email) {
       NcError.badRequest('Invalid reset url');
@@ -289,9 +307,14 @@ export class UsersService {
 
     const { token, body } = param;
 
-    const user = await Noco.ncMeta.metaGet(null, null, MetaTable.USERS, {
-      reset_password_token: token,
-    });
+    const user = await Noco.ncMeta.metaGet(
+      RootScopes.ROOT,
+      RootScopes.ROOT,
+      MetaTable.USERS,
+      {
+        reset_password_token: token,
+      },
+    );
 
     if (!user) {
       NcError.badRequest('Invalid reset url');
@@ -337,9 +360,14 @@ export class UsersService {
   }): Promise<any> {
     const { token, req } = param;
 
-    const user = await Noco.ncMeta.metaGet(null, null, MetaTable.USERS, {
-      email_verification_token: token,
-    });
+    const user = await Noco.ncMeta.metaGet(
+      RootScopes.ROOT,
+      RootScopes.ROOT,
+      MetaTable.USERS,
+      {
+        email_verification_token: token,
+      },
+    );
 
     if (!user) {
       NcError.badRequest('Invalid verification url');
@@ -475,9 +503,8 @@ export class UsersService {
     user = await User.getByEmail(email);
 
     try {
-      const template = (
-        await import('~/controllers/auth/ui/emailTemplates/verify')
-      ).default;
+      const template = (await import('~/modules/auth/ui/emailTemplates/verify'))
+        .default;
       await (
         await NcPluginMgrv2.emailAdapter()
       ).mailSend({
@@ -486,7 +513,7 @@ export class UsersService {
         html: ejs.render(template, {
           verifyLink:
             (param.req as any).ncSiteUrl +
-            `/email/verify/${user.email_verification_token}`,
+            `/email/validate/${user.email_verification_token}`,
         }),
       });
     } catch (e) {

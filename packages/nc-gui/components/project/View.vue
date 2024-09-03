@@ -3,14 +3,16 @@ import { useTitle } from '@vueuse/core'
 import NcLayout from '~icons/nc-icons/layout'
 
 const props = defineProps<{
-  baseId: string
+  baseId?: string
 }>()
+
+const { integrations } = useProvideIntegrationViewStore()
 
 const basesStore = useBases()
 
 const { openedProject, activeProjectId, basesUser, bases } = storeToRefs(basesStore)
 const { activeTables, activeTable } = storeToRefs(useTablesStore())
-const { activeWorkspace, workspaceUserCount } = storeToRefs(useWorkspace())
+const { activeWorkspace } = storeToRefs(useWorkspace())
 
 const { appInfo } = useGlobal();
 const { navigateToProjectPage } = useBase()
@@ -45,7 +47,7 @@ const { isMobileMode } = useGlobal()
 const baseSettingsState = ref('')
 
 const userCount = computed(() =>
-  isEeUI ? workspaceUserCount : activeProjectId.value ? basesUser.value.get(activeProjectId.value)?.length : 0,
+  activeProjectId.value ? basesUser.value.get(activeProjectId.value)?.filter((user) => !user?.deleted)?.length : 0,
 )
 
 watch(
@@ -93,20 +95,32 @@ watch(
     immediate: true,
   },
 )
+
+watch(
+  () => currentBase.value?.id,
+  () => {
+    /**
+     * When the current base ID changes, reset the integrations array.
+     * This ensures that the integration data is cleared, allowing it to be reloaded
+     * properly when opening the create/edit source modal with the updated base.
+     */
+    integrations.value = []
+  },
+)
 </script>
 
 <template>
   <div class="h-full nc-base-view">
     <div
       v-if="!isAdminPanel"
-      class="flex flex-row pl-2 pr-2 gap-1 border-b-1 border-gray-200 justify-between w-full"
+      class="flex flex-row px-2 py-2 gap-3 justify-between w-full border-b-1 border-gray-200"
       :class="{ 'nc-table-toolbar-mobile': isMobileMode, 'h-[var(--topbar-height)]': !isMobileMode }"
     >
-      <div class="flex flex-row items-center gap-x-3">
+      <div class="flex-1 flex flex-row items-center gap-x-3">
         <GeneralOpenLeftSidebarBtn />
-        <div class="flex flex-row items-center h-full gap-x-2.5">
+        <div class="flex flex-row items-center h-full gap-x-2 px-2">
           <GeneralProjectIcon :color="parseProp(currentBase?.meta).iconColor" :type="currentBase?.type" />
-          <NcTooltip class="flex font-medium text-sm capitalize truncate max-w-150" show-on-truncate-only>
+          <NcTooltip class="flex font-bold text-sm capitalize truncate max-w-150 text-gray-800" show-on-truncate-only>
             <template #title> {{ currentBase?.title }}</template>
             <span class="truncate">
               {{ currentBase?.title }}
@@ -114,15 +128,21 @@ watch(
           </NcTooltip>
         </div>
       </div>
+
+      <SmartsheetTopbarCmdK v-if="!isSharedBase" />
+
       <LazyGeneralShareProject />
     </div>
     <div
-      class="flex mx-12 my-8 nc-base-view-tab"
+      class="flex nc-base-view-tab"
       :style="{
         height: 'calc(100% - var(--topbar-height))',
       }"
     >
       <a-tabs v-model:activeKey="projectPageTab" class="w-full">
+        <template #leftExtra>
+          <div class="w-3"></div>
+        </template>
         <a-tab-pane v-if="!isAdminPanel" key="allTable">
           <template #tab>
             <div class="tab-title" data-testid="proj-view-tab__all-tables">
@@ -144,7 +164,7 @@ watch(
         <!-- <a-tab-pane v-if="defaultBase" key="erd" tab="Base ERD" force-render class="pt-4 pb-12">
           <ErdView :source-id="defaultBase!.id" class="!h-full" />
         </a-tab-pane> -->
-        <a-tab-pane v-if="isUIAllowed('newUser', { roles: baseRoles })" key="collaborator">
+        <a-tab-pane v-if="isUIAllowed('newUser', { roles: baseRoles }) && !isSharedBase" key="collaborator">
           <template #tab>
             <div class="tab-title" data-testid="proj-view-tab__access-settings">
               <GeneralIcon icon="users" class="!h-3.5 !w-3.5" />
@@ -163,7 +183,7 @@ watch(
           </template>
           <ProjectAccessSettings :base-id="currentBase?.id" />
         </a-tab-pane>
-        <a-tab-pane v-if="isUIAllowed('sourceCreate')" key="data-source">
+        <a-tab-pane v-if="isUIAllowed('sourceCreate') && base.id" key="data-source">
           <template #tab>
             <div class="tab-title" data-testid="proj-view-tab__data-sources">
               <GeneralIcon icon="database" />
@@ -180,7 +200,7 @@ watch(
               </div>
             </div>
           </template>
-          <DashboardSettingsDataSources v-model:state="baseSettingsState" />
+          <DashboardSettingsDataSources v-model:state="baseSettingsState" :base-id="base.id" class="max-h-full" />
         </a-tab-pane>
       </a-tabs>
     </div>
@@ -196,7 +216,13 @@ watch(
 }
 
 .tab-title {
-  @apply flex flex-row items-center gap-x-2 px-2;
+  @apply flex flex-row items-center gap-x-2 px-2 py-[1px];
+}
+:deep(.ant-tabs-tab) {
+  @apply pt-2 pb-3;
+}
+:deep(.ant-tabs-content) {
+  @apply nc-content-max-w;
 }
 :deep(.ant-tabs-tab .tab-title) {
   @apply text-gray-500;

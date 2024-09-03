@@ -1,4 +1,4 @@
-import type { ColumnType, LinkToAnotherRecordType } from 'nocodb-sdk'
+import type { ButtonType, ColumnType, FormulaType, LinkToAnotherRecordType } from 'nocodb-sdk'
 import { RelationTypes, UITypes } from 'nocodb-sdk'
 
 const uiTypes = [
@@ -56,7 +56,7 @@ const uiTypes = [
   },
   {
     name: UITypes.Year,
-    icon: iconMap.cellDate,
+    icon: iconMap.cellYear,
   },
   {
     name: UITypes.Time,
@@ -136,6 +136,11 @@ const uiTypes = [
     icon: iconMap.cellUser,
   },
   {
+    name: UITypes.Button,
+    icon: iconMap.cellButton,
+    virtual: 1,
+  },
+  {
     name: UITypes.CreatedTime,
     icon: iconMap.cellSystemDate,
   },
@@ -177,7 +182,7 @@ const getUIDTIcon = (uidt: UITypes | string) => {
 // 1. column not having default value
 // 2. column is not auto increment
 // 3. column is not auto generated
-const isColumnRequired = (col?: ColumnType) => col && col.rqd && !col.cdf && !col.ai && !col.meta?.ag
+const isColumnRequired = (col?: ColumnType) => col && col.rqd && !isValidValue(col?.cdf) && !col.ai && !col.meta?.ag
 
 const isVirtualColRequired = (col: ColumnType, columns: ColumnType[]) =>
   col.uidt === UITypes.LinkToAnotherRecord &&
@@ -222,10 +227,42 @@ const isTypableInputColumn = (colOrUidt: ColumnType | UITypes) => {
   ].includes(uidt)
 }
 
+const isColumnSupportsGroupBySettings = (colOrUidt: ColumnType) => {
+  let uidt: UITypes
+  if (typeof colOrUidt === 'object') {
+    uidt = colOrUidt.uidt as UITypes
+  } else {
+    uidt = colOrUidt
+  }
+
+  return [UITypes.SingleSelect, UITypes.User, UITypes.CreatedBy, UITypes.Checkbox, UITypes.Rating].includes(uidt)
+}
+
+const isColumnInvalid = (col: ColumnType) => {
+  switch (col.uidt) {
+    case UITypes.Formula:
+      return !!(col.colOptions as FormulaType).error
+    case UITypes.Button: {
+      const colOptions = col.colOptions as ButtonType
+      if (colOptions.type === 'webhook') {
+        return !colOptions.fk_webhook_id
+      } else if (colOptions.type === 'url') {
+        return !!colOptions.error
+      }
+    }
+  }
+
+  if (col.uidt === UITypes.Formula) {
+    return !!(col.colOptions as FormulaType).error
+  }
+}
+
 export {
   uiTypes,
   isTypableInputColumn,
+  isColumnSupportsGroupBySettings,
   getUIDTIcon,
+  isColumnInvalid,
   getUniqueColumnName,
   isColumnRequiredAndNull,
   isColumnRequired,

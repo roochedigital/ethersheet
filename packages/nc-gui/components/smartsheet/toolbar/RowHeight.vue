@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { OrgUserRoles, ProjectRoles, extractRolesObj } from 'nocodb-sdk'
 import type { GridType } from 'nocodb-sdk'
+import { OrgUserRoles, ProjectRoles, extractRolesObj } from 'nocodb-sdk'
 
 const rowHeightOptions: { icon: keyof typeof iconMap; heightClass: string }[] = [
   {
@@ -72,8 +72,8 @@ const updateRowHeight = async (rh: number, undo = false) => {
       ;(view.value.view as GridType).row_height = rh
 
       open.value = false
-    } catch (e) {
-      message.error('There was an error while updating view!')
+    } catch (e: any) {
+      message.error((await extractSdkResponseErrorMsg(e)) || 'There was an error while updating view!')
     }
   }
 }
@@ -84,12 +84,18 @@ useMenuCloseOnEsc(open)
 <template>
   <a-dropdown v-model:visible="open" offset-y class="" :trigger="['click']" overlay-class-name="nc-dropdown-height-menu">
     <div>
-      <a-button v-e="['c:row-height']" class="nc-height-menu-btn nc-toolbar-btn" :disabled="isLocked">
+      <NcButton
+        v-e="['c:row-height']"
+        :disabled="isLocked"
+        class="nc-height-menu-btn nc-toolbar-btn !border-0 !h-7 !px-1.5 !min-w-7"
+        size="small"
+        type="secondary"
+      >
         <div class="flex items-center gap-0.5">
           <component :is="iconMap.rowHeight" class="!h-3.75 !w-3.75" />
           <!-- <span v-if="!isMobileMode" class="!text-sm !font-medium">{{ $t('objects.rowHeight') }}</span> -->
         </div>
-      </a-button>
+      </NcButton>
     </div>
     <template #overlay>
       <div

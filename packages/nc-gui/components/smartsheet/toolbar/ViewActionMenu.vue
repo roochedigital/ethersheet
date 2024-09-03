@@ -14,9 +14,9 @@ const props = withDefaults(
   },
 )
 
-const emits = defineEmits(['rename', 'closeModal', 'delete'])
+const emits = defineEmits(['rename', 'closeModal', 'delete', 'descriptionUpdate'])
 
-const { isUIAllowed } = useRoles()
+const { isUIAllowed, isDataReadOnly } = useRoles()
 
 const isPublicView = inject(IsPublicInj, ref(false))
 
@@ -41,10 +41,14 @@ const views = computed(() => viewsByTable.value.get(table.value.id!))
 
 const isViewIdCopied = ref(false)
 
-const currentBaseId = computed(() => table.value?.source_id)
+const currentSourceId = computed(() => table.value?.source_id)
 
 const onRenameMenuClick = () => {
   emits('rename')
+}
+
+const onDescriptionUpdateClick = () => {
+  emits('descriptionUpdate')
 }
 
 const quickImportDialogTypes: QuickImportDialogType[] = ['csv', 'excel']
@@ -102,7 +106,9 @@ function onDuplicate() {
     'selectedViewId': view.value!.id,
     'groupingFieldColumnId': view.value!.view!.fk_grp_col_id,
     'views': views,
+    'description': view.value!.description,
     'calendarRange': view.value!.view!.calendar_range,
+    'coverImageColumnId': view.value!.view!.fk_cover_image_col_id,
     'onUpdate:modelValue': closeDialog,
     'onCreated': async (view: ViewType) => {
       closeDialog()
@@ -173,26 +179,46 @@ const onDelete = async () => {
 
     <template v-if="!view?.is_default && isUIAllowed('viewCreateOrEdit')">
       <NcDivider />
-      <NcMenuItem v-if="lockType !== LockType.Locked" @click="onRenameMenuClick">
-        <GeneralIcon icon="rename" />
-        {{ $t('activity.renameView') }}
-      </NcMenuItem>
-      <NcTooltip v-else>
-        <template #title> {{ $t('msg.info.disabledAsViewLocked') }} </template>
-        <NcMenuItem class="!cursor-not-allowed !text-gray-400">
+      <template v-if="inSidebar">
+        <NcMenuItem v-if="lockType !== LockType.Locked" @click="onRenameMenuClick">
           <GeneralIcon icon="rename" />
-          {{ $t('activity.renameView') }}
+          {{
+            $t('general.renameEntity', {
+              entity: view.type !== ViewTypes.FORM ? $t('objects.view').toLowerCase() : $t('objects.viewType.form').toLowerCase(),
+            })
+          }}
         </NcMenuItem>
-      </NcTooltip>
+        <NcTooltip v-else>
+          <template #title> {{ $t('msg.info.disabledAsViewLocked') }} </template>
+          <NcMenuItem class="!cursor-not-allowed !text-gray-400">
+            <GeneralIcon icon="rename" />
+            {{
+              $t('general.renameEntity', {
+                entity:
+                  view.type !== ViewTypes.FORM ? $t('objects.view').toLowerCase() : $t('objects.viewType.form').toLowerCase(),
+              })
+            }}
+          </NcMenuItem>
+        </NcTooltip>
+        <NcMenuItem v-if="lockType !== LockType.Locked" @click="onDescriptionUpdateClick">
+          <GeneralIcon icon="ncAlignLeft" />
+          {{ $t('general.edit') }}
+
+          {{ $t('labels.description') }}
+        </NcMenuItem>
+      </template>
       <NcMenuItem @click="onDuplicate">
         <GeneralIcon class="nc-view-copy-icon" icon="duplicate" />
-        {{ $t('labels.duplicateView') }}
+        {{
+          $t('general.duplicateEntity', {
+            entity: view.type !== ViewTypes.FORM ? $t('objects.view').toLowerCase() : $t('objects.viewType.form').toLowerCase(),
+          })
+        }}
       </NcMenuItem>
     </template>
-
     <template v-if="view.type !== ViewTypes.FORM">
       <NcDivider />
-      <template v-if="isUIAllowed('csvTableImport') && !isPublicView">
+      <template v-if="isUIAllowed('csvTableImport') && !isPublicView && !isDataReadOnly">
         <NcSubMenu key="upload">
           <template #title>
             <div
@@ -283,7 +309,7 @@ const onDelete = async () => {
 
         <template #expandIcon></template>
         <div class="flex py-3 px-4 font-bold uppercase text-xs text-gray-500">{{ $t('labels.viewMode') }}</div>
-        <a-menu-item class="!mx-1 !py-2 !rounded-md nc-view-action-lock-subaction">
+        <a-menu-item class="!mx-1 !py-2 !rounded-md nc-view-action-lock-subaction max-w-[100px]">
           <LazySmartsheetToolbarLockType :type="LockType.Collaborative" @click="changeLockType(LockType.Collaborative)" />
         </a-menu-item>
 
@@ -301,7 +327,7 @@ const onDelete = async () => {
           <GeneralIcon class="nc-view-delete-icon" icon="delete" />
           {{
             $t('general.deleteEntity', {
-              entity: $t('objects.view'),
+              entity: view.type !== ViewTypes.FORM ? $t('objects.view').toLowerCase() : $t('objects.viewType.form').toLowerCase(),
             })
           }}
         </NcMenuItem>
@@ -310,19 +336,20 @@ const onDelete = async () => {
         <GeneralIcon class="nc-view-delete-icon" icon="delete" />
         {{
           $t('general.deleteEntity', {
-            entity: $t('objects.view'),
+            entity: view.type !== ViewTypes.FORM ? $t('objects.view').toLowerCase() : $t('objects.viewType.form').toLowerCase(),
           })
         }}
       </NcMenuItem>
     </template>
-    <template v-if="currentBaseId">
+    <template v-if="table?.base_id && currentSourceId">
       <LazyDlgQuickImport
         v-for="tp in quickImportDialogTypes"
         :key="tp"
         v-model="quickImportDialogs[tp].value"
         :import-data-only="true"
         :import-type="tp"
-        :source-id="currentBaseId"
+        :base-id="table.base_id"
+        :source-id="currentSourceId"
       />
     </template>
   </NcMenu>

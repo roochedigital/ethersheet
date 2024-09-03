@@ -1,12 +1,4 @@
-export enum ClientType {
-  MYSQL = 'mysql2',
-  MSSQL = 'mssql',
-  PG = 'pg',
-  SQLITE = 'sqlite3',
-  VITESS = 'vitess',
-  SNOWFLAKE = 'snowflake',
-  DATABRICKS = 'databricks',
-}
+export { ClientType, IntegrationCategoryType, SyncDataType } from 'nocodb-sdk'
 
 export enum Language {
   ar = 'العربية',
@@ -23,6 +15,7 @@ export enum Language {
   he = 'עִברִית',
   hi = 'हिन्दी',
   hr = 'Hrvatski',
+  hu = 'Magyar',
   id = 'Bahasa Indonesia',
   it = 'Italiano',
   ja = '日本語',
@@ -162,4 +155,25 @@ export enum RichTextBubbleMenuOptions {
   numberedList = 'numberedList',
   taskList = 'taskList',
   link = 'link',
+}
+
+export enum CoverImageObjectFit {
+  FIT = 'fit',
+  COVER = 'cover',
+}
+
+export enum AuditLogsDateRange {
+  Last24H = 'last24H',
+  PastWeek = 'pastWeek',
+  PastMonth = 'pastMonth',
+  PastYear = 'pastYear',
+  Custom = 'custom',
+}
+
+export enum ExtensionsEvents {
+  DUPLICATE = 'duplicate',
+}
+
+export enum IntegrationStoreEvents {
+  INTEGRATION_ADD = 'integration-add',
 }
