@@ -23,12 +23,12 @@ const onClick = useThrottleFn(() => {
 <template>
   <div
     :style="{ left: `calc(50% - ${size / 2}px)`, top: `-${size / 2}px` }"
-    class="color-transition absolute rounded-lg pt-1 pl-1 -ml-1"
+    class="color-transition absolute rounded-lg pt-1 pl-1"
     @click="onClick"
   >
     <div class="relative">
       <img class="hidden dark:block" :width="size" :height="size" :alt="appInfo.siteName" src="/logo.svg" />
-      <img class="dark:hidden" :width="size" :height="size" :alt="appInfo.siteName" src="/logo.svg" />
+      <img class="containclass" :width="size" :height="size" :alt="appInfo.siteName" src="/logo.svg" />
 
       <TransitionGroup name="layout" :duration="500">
         <template v-if="animate || ping">
@@ -56,3 +56,10 @@ const onClick = useThrottleFn(() => {
     </div>
   </div>
 </template>
+
+<style lang="scss">
+.containclass {
+  object-fit: contain;
+  max-width: 80px;
+}
+</style>

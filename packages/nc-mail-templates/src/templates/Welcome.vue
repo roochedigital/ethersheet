@@ -18,7 +18,7 @@ const { Container } = defaultComponents;
             margin-block: 64px;
           "
         >
-          Welcome to NocoDB!
+          Welcome to Rooche Ethersheet!
         </h1>
         <p
             style="

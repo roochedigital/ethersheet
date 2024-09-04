@@ -1,6 +1,5 @@
 <script lang="ts" setup>
-  
-  const { appInfo } = useGlobal()
+const { appInfo } = useGlobal()
 </script>
 
 <template>
@@ -10,12 +9,8 @@
         data-testid="nc-workspace-menu"
         class="flex items-center nc-workspace-menu overflow-hidden py-1.25 pr-0.25 justify-center w-full ml-2"
       >
-        <a
-          class="transition-all duration-200 transform w-24 min-w-10"
-          href="/" 
-          rel="noopener noreferrer"
-        >
-          <img :alt="appInfo.siteName" src="/horizontal_logo.svg" />
+        <a class="transition-all duration-200 transform w-24 min-w-10" href="/" rel="noopener noreferrer">
+          <img class="CompanyLogo" :alt="appInfo.siteName" src="/horizontal_logo.svg" />
         </a>
         <div class="flex flex-grow"></div>
       </div>
@@ -26,5 +21,9 @@
 <style scoped lang="scss">
 .nc-workspace-menu-item {
   @apply flex items-center pl-2 py-2 gap-2 text-sm hover:text-black;
+}
+.CompanyLogo {
+  object-fit: contain;
+  max-width: 30px;
 }
 </style>

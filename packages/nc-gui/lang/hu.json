@@ -287,7 +287,9 @@
     "connections": "Connections",
     "private": "Private",
     "request": "Request",
-    "languages": "Languages"
+    "languages": "Languages",
+    "extension": "Extension",
+    "extensions": "Extensions"
   },
   "objects": {
     "files": "files",
@@ -626,6 +628,7 @@
     "setup": "Setup",
     "configLabel": "Configure {label}",
     "switchToProd": "Switch to a production-ready app database",
+    "sharedBase": "Shared Base",
     "fieldID": "Field ID",
     "addDescription": "Add description",
     "editDescription": "Edit description",
@@ -758,7 +761,7 @@
     "icon": "Icon",
     "max": "Max",
     "enableRichText": "Enable Rich Text",
-    "idColon": "Id:",
+    "idColon": "Id: {id}",
     "copiedRecordURL": "Rekord URL másolva",
     "copyRecordURL": "Rekord URL másolása",
     "duplicateRecord": "Rekord duplikálása",
@@ -999,7 +1002,6 @@
     "redirectToUrl": "Redirect to URL"
   },
   "activity": {
-    "pending": "Pending",
     "webhookDetails": "Webhook Details",
     "hideWeekends": "Hide weekends",
     "renameBase": "Bázis átnevezése",
@@ -1500,6 +1502,7 @@
       }
     },
     "info": {
+      "calendarReadOnly": "You will not be able to drag records between dates when computed or system fields are used.",
       "schemaReadOnly": "Schema alterations are disabled for this source",
       "enterWorkspaceName": "Munkaterület nevének megadása",
       "enterBaseName": "Bázis neve",

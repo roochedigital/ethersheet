@@ -35,7 +35,7 @@ onMounted(() => {
   if (sharedView.value?.title) {
     document.title = `${sharedView.value.title}`
   } else {
-    document.title = appInfo.value.siteName
+    document.title = 'Rooche Ethersheet'
   }
 })
 </script>
@@ -64,11 +64,10 @@ export default {
           </a-tooltip>
         </a>
 
-        <div>
-          <div class="flex justify-center items-center">
-            <div class="flex items-center gap-2 ml-3 text-white">
-              <template v-if="isLoading">
-                <span class="text-white" data-testid="nc-loading">{{ $t('general.loading') }}</span>
+        <div class="flex justify-center items-center">
+          <div class="flex items-center gap-2 ml-3 text-white">
+            <template v-if="isLoading">
+              <span class="text-white" data-testid="nc-loading">{{ $t('general.loading') }}</span>
 
               <component :is="iconMap.reload" :class="{ 'animate-infinite animate-spin ': isLoading }" />
             </template>
