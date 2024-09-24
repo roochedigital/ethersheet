@@ -67,7 +67,7 @@ docker run -d --name noco
 ## Docker with PG
 ```bash
 docker run -d --name noco 
-           -v "${pwd}"/nocodb:/usr/app/data/ 
+           -v "$(pwd)"/nocodb:/usr/app/data/ 
            -p 8080:8080 
             # replace with your pg connection string
            -e NC_DB="pg://host.docker.internal:5432?u=root&p=password&d=d1" 
@@ -89,7 +89,7 @@ Auto-upstall does the following : 🕊
 - 🚀 Automatically installs NocoDB with PostgreSQL, Redis, Minio, Traefik gateway using Docker Compose. 🐘 🗄️ 🌐
 - 🔄 Automatically upgrades NocoDB to the latest version when you run the command again.
 - 🔒 Automatically setups SSL and also renews it. Needs a domain or subdomain as input while installation.
-> install.nocodb.com/noco.sh script can be found [here in our github](https://raw.githubusercontent.com/nocodb/nocodb/develop/docker-compose/setup-script/noco.sh)
+> install.nocodb.com/noco.sh script can be found [here in our github](https://raw.githubusercontent.com/nocodb/nocodb/develop/docker-compose/1_Auto_Upstall/noco.sh)
 
 
 

@@ -405,41 +405,41 @@ export class UtilsService {
   }) {
     const isProd = process.env.NODE_ENV === 'production';
 
+    const moveFile = (oldPath: string, newPath: string) => {
+      fs.copyFileSync(oldPath, newPath); // Copy the file
+      fs.unlinkSync(oldPath); // Delete the original file after copying
+    };
+
     if (icon) {
       const imgPath = isProd ? '/nc-gui/' : '../../../nc-gui/public';
-
       const newIconName = `favicon.ico`;
-
       const newIconPath = path.join(__dirname, imgPath, newIconName);
-      fs.renameSync(icon.path, newIconPath);
+
+      moveFile(icon.path, newIconPath);
     }
 
     if (logo) {
       const imgPath = isProd ? '/nc-gui/' : '../../../nc-gui/public';
-
       const newIconName = `logo.svg`;
-
       const newIconPath = path.join(__dirname, imgPath, newIconName);
-      fs.renameSync(logo.path, newIconPath);
+
+      moveFile(logo.path, newIconPath);
     }
 
     if (horizontal_logo) {
       const imgPath = isProd ? '/nc-gui/' : '../../../nc-gui/public';
-
       const newIconName = `horizontal_logo.svg`;
-
       const newIconPath = path.join(__dirname, imgPath, newIconName);
-      fs.renameSync(horizontal_logo.path, newIconPath);
+
+      moveFile(horizontal_logo.path, newIconPath);
     }
 
     const { title } = body;
-
     process.env.NC_SITE_NAME = title;
     process.env.NC_SETUP = 'false';
 
     return { message: 'Files uploaded and renamed successfully' };
   }
-
   async findNuxtFile(dir, regex) {
     const files = fs.readdirSync(dir);
 
